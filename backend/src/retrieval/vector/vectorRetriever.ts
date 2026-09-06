@@ -1,0 +1,89 @@
+import { pool } from '../../config/database';
+import { HuggingFaceEmbeddingProvider } from '../../providers/huggingface/huggingFaceEmbeddingProvider';
+import { IEmbeddingProvider } from '../../providers/embeddingProvider.interface';
+import { config } from '../../config/env';
+
+export interface RetrievedChunk {
+  id: string;
+  documentId: string;
+  organizationId: string;
+  content: string;
+  chunkIndex: number;
+  similarityScore: number;
+  metadata: any;
+}
+
+export interface RetrievalOptions {
+  topK?: number;
+  similarityThreshold?: number;
+}
+
+export class VectorRetriever {
+  private embeddingProvider: IEmbeddingProvider;
+
+  constructor(embeddingProvider?: IEmbeddingProvider) {
+    this.embeddingProvider = embeddingProvider || new HuggingFaceEmbeddingProvider();
+  }
+
+  /**
+   * Performs semantic vector search with mandatory multi-tenant organizationId isolation.
+   */
+  async search(
+    query: string,
+    organizationId: string,
+    options: RetrievalOptions = {}
+  ): Promise<RetrievedChunk[]> {
+    if (!organizationId) {
+      throw new Error('Mandatory tenant identifier (organizationId) missing from vector search query');
+    }
+
+    if (!config.vector.enabled) {
+      console.warn('⚠️ Vector retrieval invoked while PGVECTOR_ENABLED is false');
+      return [];
+    }
+
+    const topK = options.topK || 5;
+    const similarityThreshold = options.similarityThreshold || 0.3;
+
+    // 1. Generate query embedding vector
+    const queryVector = await this.embeddingProvider.embedQuery(query);
+    if (!queryVector || queryVector.length === 0) {
+      console.warn('⚠️ Query embedding generation produced empty vector');
+      return [];
+    }
+
+    const vectorStr = `[${queryVector.join(',')}]`;
+
+    // 2. Perform cosine similarity search (<=> operator calculates cosine distance)
+    const sql = `
+      SELECT 
+        id,
+        document_id as "documentId",
+        organization_id as "organizationId",
+        content,
+        chunk_index as "chunkIndex",
+        metadata,
+        1 - (embedding <=> $1::vector) as "similarityScore"
+      FROM document_chunks
+      WHERE organization_id = $2
+        AND embedding IS NOT NULL
+        AND (1 - (embedding <=> $1::vector)) >= $3
+      ORDER BY embedding <=> $1::vector ASC
+      LIMIT $4;
+    `;
+
+    const { rows } = await pool.query(sql, [vectorStr, organizationId, similarityThreshold, topK]);
+
+    return rows.map((row) => ({
+      id: row.id,
+      documentId: row.documentId,
+      organizationId: row.organizationId,
+      content: row.content,
+      chunkIndex: row.chunkIndex,
+      similarityScore: parseFloat(row.similarityScore.toFixed(4)),
+      metadata: row.metadata,
+    }));
+  }
+}
+
+export const vectorRetriever = new VectorRetriever();

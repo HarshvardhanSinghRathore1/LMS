@@ -1,0 +1,107 @@
+{
+  "description": "Capacity Connect Educational Embedding Benchmark Dataset",
+  "passages": [
+    {
+      "id": "doc_rest_api_01",
+      "text": "REST APIs (Representational State Transfer) rely on stateless HTTP endpoints using standard methods like GET, POST, PUT, and DELETE to manage organizational learning content."
+    },
+    {
+      "id": "doc_nodejs_02",
+      "text": "Node.js provides a single-threaded non-blocking asynchronous event loop ideal for building scalable modular monolith backends."
+    },
+    {
+      "id": "doc_express_03",
+      "text": "Express.js simplifies HTTP request routing, middleware chaining, error handling, and security header integration in Node.js applications."
+    },
+    {
+      "id": "doc_postgres_04",
+      "text": "PostgreSQL is an enterprise-grade open-source relational database providing strong ACID compliance, JSONB document storage, and foreign key integrity."
+    },
+    {
+      "id": "doc_indexes_05",
+      "text": "B-tree and HNSW database indexes drastically accelerate SQL queries and vector similarity searches across multi-tenant tables."
+    },
+    {
+      "id": "doc_pgvector_06",
+      "text": "pgvector extends PostgreSQL to store dense vector embeddings and execute cosine distance queries (<=> operator) for semantic document retrieval."
+    },
+    {
+      "id": "doc_rag_07",
+      "text": "Retrieval-Augmented Generation (RAG) fuses domain document chunk retrieval with large language model prompts to prevent hallucinations."
+    },
+    {
+      "id": "doc_competency_08",
+      "text": "Competency mapping measures user skill levels from 0 to 100 across categories like Beginner (0-39), Developing (40-59), Proficient (60-79), and Advanced (80-100)."
+    },
+    {
+      "id": "doc_skillgap_09",
+      "text": "Skill gaps are calculated by subtracting a trainee's current evaluated competency score from the organization's required target competency level."
+    },
+    {
+      "id": "doc_trainer_10",
+      "text": "Intelligent trainer matching ranks available educators based on skill alignment (40%), experience (20%), ratings (15%), and availability (15%)."
+    },
+    {
+      "id": "doc_graphiti_11",
+      "text": "Graphiti maintains persistent temporal learner context such as evolving struggles, learning style preferences, and historic goal progression."
+    },
+    {
+      "id": "doc_langchain_12",
+      "text": "LangChain orchestrates prompt templates, context retrieval fusion pipelines, and structured output LLM invocations across OpenAI, Gemini, and Hugging Face."
+    },
+    {
+      "id": "doc_jwt_13",
+      "text": "JSON Web Tokens (JWT) authenticate API requests using signed Bearer headers and refresh token strategies for secure session management."
+    },
+    {
+      "id": "doc_rbac_14",
+      "text": "Role-Based Access Control (RBAC) restricts system capabilities across Trainee, Trainer, and Admin user roles."
+    },
+    {
+      "id": "doc_certificate_15",
+      "text": "Certificates generate unique verification IDs upon trainee completion of course modules and passing assessment score thresholds."
+    },
+    {
+      "id": "doc_multitenancy_16",
+      "text": "Multi-tenant architecture enforces strict organization_id isolation on all database queries so Organization A users never access Organization B data."
+    },
+    {
+      "id": "doc_assessment_17",
+      "text": "Assessments evaluate trainee knowledge through Multiple Choice Questions (MCQs), true/false questions, and practical short-answer assignments."
+    },
+    {
+      "id": "doc_aimcq_18",
+      "text": "AI MCQ generation drafts structured quiz questions from uploaded learning material for mandatory trainer review prior to assessment publication."
+    },
+    {
+      "id": "doc_ainotes_19",
+      "text": "AI notes automatically summarize uploaded course documents into structured key terms, summary sections, and key learning takeaways."
+    },
+    {
+      "id": "doc_analytics_20",
+      "text": "Organization analytics derive learning activity metrics, completion rates, and average assessment scores from real activity_events tracking logs."
+    }
+  ],
+  "queries": [
+    { "query": "How do stateless HTTP methods work in REST APIs?", "targetPassageId": "doc_rest_api_01" },
+    { "query": "What is Node.js event loop architecture?", "targetPassageId": "doc_nodejs_02" },
+    { "query": "Express routing and middleware handler setup", "targetPassageId": "doc_express_03" },
+    { "query": "PostgreSQL relational database ACID transactions", "targetPassageId": "doc_postgres_04" },
+    { "query": "Accelerating SQL queries with database indexes", "targetPassageId": "doc_indexes_05" },
+    { "query": "pgvector vector similarity search in PostgreSQL", "targetPassageId": "doc_pgvector_06" },
+    { "query": "RAG document retrieval language model prompt fusion", "targetPassageId": "doc_rag_07" },
+    { "query": "Competency score scoring ranges from beginner to advanced", "targetPassageId": "doc_competency_08" },
+    { "query": "Calculating trainee skill gap against target requirement", "targetPassageId": "doc_skillgap_09" },
+    { "query": "How are trainers matched to trainees based on skills?", "targetPassageId": "doc_trainer_10" },
+    { "query": "Persistent temporal learner context and learning goals", "targetPassageId": "doc_graphiti_11" },
+    { "query": "LangChain prompt templates and LLM orchestration", "targetPassageId": "doc_langchain_12" },
+    { "query": "JWT bearer tokens and authentication strategy", "targetPassageId": "doc_jwt_13" },
+    { "query": "Role permissions for Trainee Trainer and Administrator", "targetPassageId": "doc_rbac_14" },
+    { "query": "Course completion certificate ID verification", "targetPassageId": "doc_certificate_15" },
+    { "query": "Enforcing organization_id tenant isolation in database", "targetPassageId": "doc_multitenancy_16" },
+    { "query": "Multiple choice quiz questions and assessment attempts", "targetPassageId": "doc_assessment_17" },
+    { "query": "AI quiz generation and instructor review workflow", "targetPassageId": "doc_aimcq_18" },
+    { "query": "Generating AI summary notes from uploaded material", "targetPassageId": "doc_ainotes_19" },
+    { "query": "Deriving training metrics from real activity logs", "targetPassageId": "doc_analytics_20" }
+  ]
+}

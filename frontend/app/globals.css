@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --onyx: #0b090a;
+  --carbon-black: #161a1d;
+  --dark-garnet: #660708;
+  --mahogany-red: #a4161a;
+  --mahogany-red-2: #ba181b;
+  --strawberry-red: #e5383b;
+  --silver: #b1a7a6;
+  --dust-grey: #d3d3d3;
+  --white-smoke: #f5f3f4;
+  --white: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--onyx);
+  color: var(--white);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0b090a;
+}
+::-webkit-scrollbar-thumb {
+  background: #161a1d;
+  border-radius: 4px;
+  border: 1px solid #660708;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a4161a;
+}
