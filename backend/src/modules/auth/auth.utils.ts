@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { v4 as uuidv4 } from 'uuid';
 import { config } from '../../config/env';
 import { AccessTokenPayload, RefreshTokenPayload, UserRole } from './auth.types';
 
@@ -29,7 +30,7 @@ export function generateAccessToken(user: { id: string; organizationId: string; 
 
   return jwt.sign(payload, config.auth.jwtAccessSecret, {
     algorithm: 'HS256',
-    expiresIn: config.auth.jwtAccessExpiresIn,
+    expiresIn: config.auth.jwtAccessExpiresIn as any,
   });
 }
 
@@ -37,12 +38,13 @@ export function generateRefreshToken(userId: string, tokenFamilyId: string): str
   const payload: RefreshTokenPayload = {
     sub: userId,
     tokenFamilyId,
+    jti: uuidv4(), // Unique JWT ID ensures cryptographic uniqueness across rapid rotations
     type: 'refresh',
   };
 
   return jwt.sign(payload, config.auth.jwtRefreshSecret, {
     algorithm: 'HS256',
-    expiresIn: config.auth.jwtRefreshExpiresIn,
+    expiresIn: config.auth.jwtRefreshExpiresIn as any,
   });
 }
 

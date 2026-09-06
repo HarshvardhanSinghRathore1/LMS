@@ -42,7 +42,7 @@ export class AuthService {
     // 2. Check for duplicate email
     const existing = await authRepository.findUserByEmail(input.email);
     if (existing) {
-      throw ApiError.badRequest('An account with this email address already exists', 'EMAIL_ALREADY_EXISTS');
+      throw ApiError.conflict('An account with this email address already exists', 'EMAIL_ALREADY_EXISTS');
     }
 
     // 3. Hash password

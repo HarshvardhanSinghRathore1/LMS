@@ -12,6 +12,13 @@ const REFRESH_COOKIE_OPTIONS = {
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
+const CLEAR_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: config.env.isProduction,
+  sameSite: 'lax' as const,
+  path: '/api/v1/auth',
+};
+
 export class AuthController {
   async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -79,7 +86,7 @@ export class AuthController {
         expiresIn: result.expiresIn,
       });
     } catch (err) {
-      res.clearCookie('cc_refresh_token', REFRESH_COOKIE_OPTIONS);
+      res.clearCookie('cc_refresh_token', CLEAR_COOKIE_OPTIONS);
       next(err);
     }
   }
@@ -89,7 +96,7 @@ export class AuthController {
       const refreshTokenRaw = req.cookies?.cc_refresh_token || req.body?.refreshToken;
       await authService.logout(refreshTokenRaw);
 
-      res.clearCookie('cc_refresh_token', REFRESH_COOKIE_OPTIONS);
+      res.clearCookie('cc_refresh_token', CLEAR_COOKIE_OPTIONS);
 
       sendSuccess(res, {}, { message: 'Logged out successfully' });
     } catch (err) {
