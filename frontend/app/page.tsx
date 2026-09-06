@@ -29,6 +29,7 @@ import {
   Lock,
   BookOpen,
   Plus,
+  CheckSquare,
 } from 'lucide-react';
 
 const COLOR_SWATCHES = [
@@ -135,7 +136,7 @@ export default function DashboardPage() {
           </div>
           <div className="text-right flex flex-col items-end gap-1">
             <span className="text-xs font-mono text-silver">Current Stage</span>
-            <Badge variant="brand" size="md">STAGE 2 — COURSE MANAGEMENT</Badge>
+            <Badge variant="brand" size="md">STAGE 4 — ASSESSMENT ENGINE & AUTOMATED GRADING</Badge>
           </div>
         </div>
 
@@ -159,6 +160,66 @@ export default function DashboardPage() {
           </div>
         </div>
       </header>
+
+      {/* STAGE 4 — ASSESSMENT ENGINE QUICK ACCESS CARD */}
+      <section>
+        <Card
+          title="Stage 4 — Assessment Engine & Automated Grading Control Hub"
+          subtitle="Multi-tenant assessment creation, MCQ & True/False questions, secure timed attempts, and server-side automated grading"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-neutral-800">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <CheckSquare className="w-4 h-4 text-[var(--strawberry-red)]" />
+                Assessment Engine & Result Center
+              </h4>
+              <p className="text-xs text-neutral-400">
+                Take published assessments for enrolled courses, manage tests and questions (Trainers/Admins), and monitor organization metrics.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <Link
+                href="/assessments"
+                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-[#660708] via-[#a4161a] to-[#e5383b] hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                <CheckSquare className="w-4 h-4" />
+                <span>Assessments Hub</span>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      {/* STAGE 3 — MY LEARNING & PROGRESS QUICK ACCESS CARD */}
+      <section>
+        <Card
+          title="Stage 3 — Trainee Enrollment & Progress Control Hub"
+          subtitle="Course enrollment lifecycle, real-time lesson progress engine, and organization learning metrics"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-neutral-800">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-[var(--strawberry-red)]" />
+                Trainee Learning Workspace & Completion Engine
+              </h4>
+              <p className="text-xs text-neutral-400">
+                Enroll in published courses, track completed lessons, monitor course progress percentage, and view organizational stats.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <Link
+                href="/my-learning"
+                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-[#660708] via-[#a4161a] to-[#e5383b] hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>My Learning Dashboard</span>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </section>
 
       {/* STAGE 2 — COURSE MANAGEMENT QUICK ACCESS CARD */}
       <section>
@@ -374,8 +435,8 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             label="Current Stage"
-            value="Stage 2"
-            subtext="Course Management"
+            value="Stage 4"
+            subtext="Assessment Engine"
             status="neutral"
             icon={<Compass className="w-5 h-5" />}
           />
@@ -389,7 +450,7 @@ export default function DashboardPage() {
           <StatCard
             label="PostgreSQL Database"
             value={healthState.dbStatus === 'loading' ? 'CHECKING...' : healthState.dbStatus.toUpperCase()}
-            subtext="004_course_management.sql Applied"
+            subtext="006_assessment_engine.sql Applied"
             status={healthState.dbStatus === 'connected' ? 'success' : healthState.dbStatus === 'loading' ? 'warning' : 'danger'}
             icon={<Database className="w-5 h-5" />}
           />

@@ -12,6 +12,8 @@ import { healthRoutes } from './modules/health/health.routes';
 import { aiRoutes } from './modules/ai/ai.routes';
 import { authRoutes } from './modules/auth/auth.routes';
 import { courseRoutes } from './modules/courses/course.routes';
+import enrollmentRoutes from './modules/enrollments/enrollment.routes';
+import assessmentRoutes from './modules/assessments/assessment.routes';
 
 const app: Application = express();
 
@@ -31,7 +33,7 @@ app.use(
 // 3. Rate Limiting
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: config.env.isDevelopment ? 5000 : 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -45,7 +47,7 @@ const generalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20, // Strict rate limit for login / register attempts
+  max: config.env.isDevelopment ? 1000 : 20, // High rate limit for dev test suites
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -73,6 +75,8 @@ app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/courses', courseRoutes);
+app.use('/api/v1/enrollments', enrollmentRoutes);
+app.use('/api/v1/assessments', assessmentRoutes);
 
 // 6. 404 & Global Error Middleware
 app.use(notFoundHandler);
