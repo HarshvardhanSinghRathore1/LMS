@@ -11,6 +11,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { healthRoutes } from './modules/health/health.routes';
 import { aiRoutes } from './modules/ai/ai.routes';
 import { authRoutes } from './modules/auth/auth.routes';
+import { courseRoutes } from './modules/courses/course.routes';
 
 const app: Application = express();
 
@@ -71,6 +72,7 @@ app.use(requestLogger);
 app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/courses', courseRoutes);
 
 // 6. 404 & Global Error Middleware
 app.use(notFoundHandler);

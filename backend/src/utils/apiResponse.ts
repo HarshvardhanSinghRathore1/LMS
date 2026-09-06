@@ -4,6 +4,7 @@ export interface ApiResponseOptions {
   message?: string;
   statusCode?: number;
   details?: any;
+  meta?: any;
 }
 
 export function sendSuccess(res: Response, data: any = {}, options: ApiResponseOptions = {}): void {
@@ -12,6 +13,7 @@ export function sendSuccess(res: Response, data: any = {}, options: ApiResponseO
     success: true,
     data,
     ...(options.message ? { message: options.message } : {}),
+    ...(options.meta ? { meta: options.meta } : {}),
   });
 }
 
