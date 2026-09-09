@@ -1,40 +1,137 @@
 import { Request, Response, NextFunction } from 'express';
 import { aiService } from './ai.service';
-import { sendSuccess, sendError } from '../../utils/apiResponse';
-import { AIProviderFactory } from '../../providers/aiProviderFactory';
+import { generateNotesSchema, generateMcqsSchema, reviewItemSchema, tutorChatSchema, aiQuerySchema } from './ai.schemas';
 
 export class AIController {
-  async getHealth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  /**
+   * POST /api/v1/ai/generate-notes
+   */
+  async generateNotes(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const health = await aiService.getAIHealth();
-      sendSuccess(res, health, { message: 'AI Infrastructure status retrieved successfully' });
-    } catch (err) {
-      next(err);
+      const organizationId = req.user!.organizationId;
+      const creatorId = req.user!.id;
+      const input = generateNotesSchema.parse(req.body);
+
+      const result = await aiService.generateNotes(organizationId, creatorId, input);
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: 'AI study notes generated successfully in PENDING_REVIEW status',
+      });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async getProviders(req: Request, res: Response, next: NextFunction): Promise<void> {
+  /**
+   * POST /api/v1/ai/generate-mcqs
+   */
+  async generateMcqs(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const statuses = AIProviderFactory.getAllProviderStatuses();
-      const active = AIProviderFactory.getActiveProvider();
-      sendSuccess(res, { activeProvider: active.activeName, providers: statuses });
-    } catch (err) {
-      next(err);
+      const organizationId = req.user!.organizationId;
+      const creatorId = req.user!.id;
+      const input = generateMcqsSchema.parse(req.body);
+
+      const items = await aiService.generateMcqs(organizationId, creatorId, input);
+
+      res.status(201).json({
+        success: true,
+        data: items,
+        message: `Successfully generated ${items.length} MCQ item(s) in PENDING_REVIEW status`,
+      });
+    } catch (error) {
+      next(error);
     }
   }
 
-  async testAI(req: Request, res: Response, next: NextFunction): Promise<void> {
+  /**
+   * GET /api/v1/ai/generated-items
+   */
+  async listGeneratedItems(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { query, organizationId, learnerId } = req.body;
-      if (!query || !organizationId || !learnerId) {
-        sendError(res, 400, 'BAD_REQUEST', 'Missing query, organizationId, or learnerId in body', null, req.requestId);
-        return;
-      }
+      const organizationId = req.user!.organizationId;
+      const query = aiQuerySchema.parse(req.query);
 
-      const result = await aiService.testAIFusion(query, organizationId, learnerId);
-      sendSuccess(res, result, { message: 'AI RAG fusion test completed' });
-    } catch (err) {
-      next(err);
+      const { items, total } = await aiService.listGeneratedItems(organizationId, query);
+
+      res.status(200).json({
+        success: true,
+        data: items,
+        meta: {
+          total,
+          page: query.page || 1,
+          limit: query.limit || 20,
+        },
+        message: 'Retrieved AI generated items',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/ai/generated-items/:id/review
+   */
+  async reviewGeneratedItem(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const organizationId = req.user!.organizationId;
+      const reviewerId = req.user!.id;
+      const itemId = req.params.id;
+      const input = reviewItemSchema.parse(req.body);
+
+      const result = await aiService.reviewGeneratedItem(organizationId, reviewerId, itemId, input);
+
+      res.status(200).json({
+        success: true,
+        data: result.item,
+        importedQuestionId: result.importedQuestionId,
+        message: result.message,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/ai/tutor/chat
+   */
+  async chatWithTutor(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const organizationId = req.user!.organizationId;
+      const userId = req.user!.id;
+      const userRole = req.user!.role;
+      const input = tutorChatSchema.parse(req.body);
+
+      const response = await aiService.chatWithTutor(organizationId, userRole, userId, input);
+
+      res.status(200).json({
+        success: true,
+        data: response,
+        message: 'AI Tutor response generated',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/ai/tutor/conversations
+   */
+  async listConversations(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const organizationId = req.user!.organizationId;
+      const userId = req.user!.id;
+
+      const conversations = await aiService.listConversations(organizationId, userId);
+
+      res.status(200).json({
+        success: true,
+        data: conversations,
+        message: 'Retrieved tutor conversation threads',
+      });
+    } catch (error) {
+      next(error);
     }
   }
 }

@@ -6,6 +6,8 @@ import {
   OrganizationEnrollmentMetrics,
 } from './enrollment.types';
 
+import { competencyService } from '../competencies/competency.service';
+
 export class EnrollmentRepository {
   /**
    * Count total lessons in a course hierarchy
@@ -313,6 +315,19 @@ export class EnrollmentRepository {
           params.enrollmentId,
         ]
       );
+
+      // 8. Synchronous Transactional Competency Reevaluation
+      try {
+        await competencyService.reevaluateTraineeCompetencies(
+          client,
+          params.traineeId,
+          params.organizationId,
+          enrollment.course_id
+        );
+      } catch (compErr: any) {
+        console.error(`⚠️ Competency Reevaluation Error during Lesson Progress update:`, compErr.message);
+        throw compErr;
+      }
 
       await client.query('COMMIT');
       return {

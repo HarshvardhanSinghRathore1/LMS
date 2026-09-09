@@ -286,10 +286,12 @@ export class AssessmentController {
       const { assessmentId } = req.params;
       const organizationId = req.user!.organizationId;
       const userId = req.user!.id;
+      const userRole = req.user!.role;
 
-      const submissions = await assessmentService.getMySubmissions(
+      const submissions = await assessmentService.getResults(
         organizationId,
         userId,
+        userRole,
         assessmentId
       );
 

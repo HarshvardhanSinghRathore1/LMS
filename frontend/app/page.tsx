@@ -30,6 +30,9 @@ import {
   BookOpen,
   Plus,
   CheckSquare,
+  Award,
+  Sparkles,
+  Bot,
 } from 'lucide-react';
 
 const COLOR_SWATCHES = [
@@ -136,7 +139,7 @@ export default function DashboardPage() {
           </div>
           <div className="text-right flex flex-col items-end gap-1">
             <span className="text-xs font-mono text-silver">Current Stage</span>
-            <Badge variant="brand" size="md">STAGE 4 — ASSESSMENT ENGINE & AUTOMATED GRADING</Badge>
+            <Badge variant="brand" size="md">STAGE 6 — AI CONTENT GENERATION &amp; COURSE-AWARE AI TUTOR</Badge>
           </div>
         </div>
 
@@ -261,7 +264,66 @@ export default function DashboardPage() {
         </Card>
       </section>
 
-      {/* STAGE 1 — AUTHENTICATION & RBAC CARD */}
+      {/* STAGE 5 — COMPETENCY ENGINE QUICK ACCESS CARD */}
+      <section>
+        <Card
+          title="Stage 5 — Competency Engine & Skill Gap Analysis"
+          subtitle="Multi-tenant competency catalog, 70% assessment + 30% progress weighted evaluations, and skill gap matrix"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-neutral-800">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <Award className="w-4 h-4 text-[var(--strawberry-red)]" />
+                Competency Hub & Organization Skill Gap Matrix
+              </h4>
+              <p className="text-xs text-neutral-400">
+                Manage competencies, map courses with custom weights, view real-time proficiency scores (0–100%), and analyze remaining skill gaps.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <Link
+                href="/competencies"
+                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-[#660708] via-[#a4161a] to-[#e5383b] hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                <Award className="w-4 h-4" />
+                <span>Competency Workspace</span>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      {/* STAGE 6 — AI FEATURES QUICK ACCESS CARD */}
+      <section>
+        <Card
+          title="Stage 6 — AI-Assisted Content Generation &amp; Course-Aware AI Tutor"
+          subtitle="AI study notes, MCQ generation with trainer review workflow, and course-scoped RAG AI tutor"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-purple-900/40">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <Bot className="w-4 h-4 text-purple-400" />
+                AI Workspace, Content Generator &amp; AI Tutor
+              </h4>
+              <p className="text-xs text-neutral-400">
+                Admins &amp; Trainers can generate AI study notes and MCQs for review. Trainees get a course-aware AI Tutor grounded in actual lesson content via RAG.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <Link
+                href="/ai-tools"
+                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-purple-950 to-violet-800 hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-purple-700/50"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Open AI Workspace</span>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </section>
+
       <section>
         <Card
           title="Stage 1 — Authentication & Authorization Control Center"
@@ -435,8 +497,8 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             label="Current Stage"
-            value="Stage 4"
-            subtext="Assessment Engine"
+            value="Stage 5"
+            subtext="Competency Engine"
             status="neutral"
             icon={<Compass className="w-5 h-5" />}
           />
@@ -450,14 +512,14 @@ export default function DashboardPage() {
           <StatCard
             label="PostgreSQL Database"
             value={healthState.dbStatus === 'loading' ? 'CHECKING...' : healthState.dbStatus.toUpperCase()}
-            subtext="006_assessment_engine.sql Applied"
+            subtext="007_competency_engine.sql Applied"
             status={healthState.dbStatus === 'connected' ? 'success' : healthState.dbStatus === 'loading' ? 'warning' : 'danger'}
             icon={<Database className="w-5 h-5" />}
           />
           <StatCard
             label="Architecture Mode"
             value="Modular Monolith"
-            subtext="Courses + Modules + Lessons + RAG"
+            subtext="Competencies + Gaps + 70/30 Engine"
             status="neutral"
             icon={<Layers className="w-5 h-5" />}
           />

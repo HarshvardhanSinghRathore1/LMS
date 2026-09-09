@@ -23,13 +23,65 @@
   padding: 0;
 }
 
-body {
-  background-color: var(--onyx);
-  color: var(--white);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+html, body {
+  background-color: #0b090a !important;
+  color: #ffffff !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Explicit fallback utilities for dark enterprise theme */
+.bg-onyx { background-color: #0b090a !important; }
+.bg-carbon-black { background-color: #161a1d !important; }
+.bg-dark-garnet { background-color: #660708 !important; }
+.bg-mahogany-red { background-color: #a4161a !important; }
+.bg-strawberry-red { background-color: #e5383b !important; }
+
+.text-white { color: #ffffff !important; }
+.text-white-smoke { color: #f5f3f4 !important; }
+.text-silver { color: #b1a7a6 !important; }
+.text-strawberry-red { color: #e5383b !important; }
+.text-mahogany-red { color: #a4161a !important; }
+
+.border-silver-15 { border-color: rgba(177, 167, 166, 0.15) !important; }
+.border-silver-20 { border-color: rgba(177, 167, 166, 0.20) !important; }
+
+/* Glassmorphism & Custom UI Utilities */
+.glass-panel {
+  background: rgba(22, 26, 29, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-interactive {
+  background: rgba(22, 26, 29, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel-interactive:hover {
+  border-color: rgba(229, 56, 59, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -10px rgba(164, 22, 26, 0.25);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #ffffff 0%, #d3d3d3 50%, #e5383b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.glow-brand {
+  box-shadow: 0 0 25px -5px rgba(164, 22, 26, 0.4);
+}
+
+.glow-purple {
+  box-shadow: 0 0 25px -5px rgba(147, 51, 234, 0.35);
 }
 
 /* Custom scrollbar for dark theme */

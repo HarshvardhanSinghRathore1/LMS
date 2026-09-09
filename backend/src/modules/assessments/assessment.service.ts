@@ -186,15 +186,22 @@ export class AssessmentService {
       }
     }
 
-    return assessmentRepository.createQuestion({
-      assessmentId,
-      questionText: input.questionText,
-      questionType: input.questionType,
-      points: input.points,
-      orderIndex: input.orderIndex,
-      options: input.options,
-      correctAnswer: input.correctAnswer,
-    });
+    try {
+      return await assessmentRepository.createQuestion({
+        assessmentId,
+        questionText: input.questionText,
+        questionType: input.questionType,
+        points: input.points,
+        orderIndex: input.orderIndex,
+        options: input.options,
+        correctAnswer: input.correctAnswer,
+      });
+    } catch (err: any) {
+      if (err.code === '23505') {
+        throw ApiError.badRequest('Question order_index must be unique for this assessment', 'DUPLICATE_ORDER_INDEX');
+      }
+      throw err;
+    }
   }
 
   /**
@@ -406,6 +413,21 @@ export class AssessmentService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Get assessment results (Trainee views own, Admin/Trainer views organization results)
+   */
+  async getResults(
+    organizationId: string,
+    userId: string,
+    userRole: string,
+    assessmentId: string
+  ): Promise<SubmissionRecord[]> {
+    if (userRole === 'ADMIN' || userRole === 'TRAINER') {
+      return assessmentRepository.listSubmissionsForAssessment(assessmentId, organizationId);
+    }
+    return assessmentRepository.listSubmissionsForTrainee(userId, organizationId, assessmentId);
   }
 
   /**

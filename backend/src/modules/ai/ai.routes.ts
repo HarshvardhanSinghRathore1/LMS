@@ -1,9 +1,55 @@
 import { Router } from 'express';
 import { aiController } from './ai.controller';
+import { authenticate } from '../../middleware/authenticate';
+import { authorize } from '../../middleware/authorize';
+import { enforceOrganizationContext } from '../../middleware/organizationContext';
 
 const router = Router();
 
-router.get('/providers', (req, res, next) => aiController.getProviders(req, res, next));
-router.post('/test', (req, res, next) => aiController.testAI(req, res, next));
+// Apply global auth & tenant middleware to all AI routes
+router.use(authenticate);
+router.use(enforceOrganizationContext);
 
-export const aiRoutes = router;
+// 1. Generate AI Study Notes (ADMIN & TRAINER)
+router.post(
+  '/generate-notes',
+  authorize('ADMIN', 'TRAINER'),
+  aiController.generateNotes.bind(aiController)
+);
+
+// 2. Generate AI MCQs (ADMIN & TRAINER)
+router.post(
+  '/generate-mcqs',
+  authorize('ADMIN', 'TRAINER'),
+  aiController.generateMcqs.bind(aiController)
+);
+
+// 3. List Generated Items for Review Queue (ADMIN & TRAINER)
+router.get(
+  '/generated-items',
+  authorize('ADMIN', 'TRAINER'),
+  aiController.listGeneratedItems.bind(aiController)
+);
+
+// 4. Review & Approve/Reject Generated Item (ADMIN & TRAINER)
+router.post(
+  '/generated-items/:id/review',
+  authorize('ADMIN', 'TRAINER'),
+  aiController.reviewGeneratedItem.bind(aiController)
+);
+
+// 5. Course-Aware AI Tutor RAG Chat (TRAINEE, TRAINER, ADMIN)
+router.post(
+  '/tutor/chat',
+  authorize('TRAINEE', 'TRAINER', 'ADMIN'),
+  aiController.chatWithTutor.bind(aiController)
+);
+
+// 6. List Tutor Conversations for Trainee (TRAINEE, TRAINER, ADMIN)
+router.get(
+  '/tutor/conversations',
+  authorize('TRAINEE', 'TRAINER', 'ADMIN'),
+  aiController.listConversations.bind(aiController)
+);
+
+export default router;

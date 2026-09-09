@@ -16,9 +16,9 @@ Capacity Connect is an AI-powered organizational capacity-building and Learning 
 
 ## Current Development Stage
 
-**STAGE 3 — ENROLLMENT & PROGRESS TRACKING (COMPLETE & VERIFIED)**
+**STAGE 6 — AI CONTENT GENERATION & COURSE-AWARE TUTOR (COMPLETE & VERIFIED)**
 
-Stage 3 delivers production-oriented Course Enrollment & Lesson Progress Tracking, enabling Trainees to enroll in published courses within their organization, track lesson completion in real time with visual progress indicators, automatically compute course completion percentages via database transactions, and allow Administrators and Trainers to monitor organization-wide learning progress metrics.
+Stage 6 delivers AI Content Generation (Study Notes & MCQs), a Trainer/Admin Review Queue with atomic assessment question imports, and a RAG-powered Course-Aware AI Tutor featuring multi-turn conversation memory, HNSW vector search, and precise source citations.
 
 ### Completed Stages:
 - **Stage 0**: Modular monolith foundation, Express API setup, PostgreSQL migration runner, dynamic health monitoring (`/api/v1/health`), request tracing (`X-Request-ID`), error middleware, enterprise dark design system.
@@ -26,6 +26,9 @@ Stage 3 delivers production-oriented Course Enrollment & Lesson Progress Trackin
 - **Stage 1**: Authentication & RBAC baseline (`003_authentication.sql`, `bcryptjs` password hashing, JWT access token & HttpOnly refresh token rotation, token family tracking, reuse detection, `/auth/*` routes, admin seed script, client AuthContext & login/register pages).
 - **Stage 2**: Course Management (`004_course_management.sql`, Course/Module/Lesson CRUD, status lifecycle `DRAFT` -> `PUBLISHED` -> `ARCHIVED`, publish validation, non-blocking RAG vector indexing integration, Course Catalog `/courses`, Course Builder `/courses/create`, Course Detail `/courses/[id]`).
 - **Stage 3**: Course Enrollment & Lesson Progress Tracking (`005_enrollment_progress.sql`, `course_enrollments` & `lesson_progress` tables, duplicate protection `409 Conflict`, draft course shielding `400 Bad Request`, transactional progress recalculation engine, status engine `ENROLLED` -> `IN_PROGRESS` -> `COMPLETED` @ 100.00%, `DROPPED` lifecycle, organization metrics `/enrollments/metrics/organization`, Trainee Learning Workspace `/my-learning`, `docs/ENROLLMENT-PROGRESS.md`, 21/21 automated tests passed).
+- **Stage 4**: Assessment Engine & Automated Grading (`006_assessment_engine.sql`, `assessments`, `assessment_questions`, `assessment_submissions` tables, MCQ & TRUE_FALSE support, DRAFT -> PUBLISHED status controls, attempt limits, server-side timer expiration, transactional grading engine, answer key isolation, organization metrics `/assessments/metrics/organization`, Trainee Assessment Dashboard `/assessments`, Take Screen `/assessments/[id]/take`, `docs/ASSESSMENT-ENGINE.md`, 42/42 automated assertions passed).
+- **Stage 5**: Competency Engine & Skill Gap Analysis (`007_competency_engine.sql`, `competencies`, `course_competencies`, `trainee_competencies` tables, 70/30 performance formula `(Assessment * 0.7) + (Progress * 0.3)`, weighted course normalization, 4-tier proficiency levels `NOVICE/INTERMEDIATE/ADVANCED/EXPERT`, transactional score hooks, Trainee Skill Gaps `/competencies`, Org Skill Matrix `/competencies?view=matrix`, `docs/COMPETENCY-ENGINE.md`, 36/36 automated assertions passed).
+- **Stage 6**: AI Content Generation & Course-Aware Tutor (`008_ai_features.sql`, `ai_generated_items`, `tutor_conversations`, `tutor_messages` tables, Study Notes & MCQ generation, Review Queue `/ai-tools`, atomic MCQ import to question bank, RAG AI Tutor with HNSW retrieval & inline source citations, `docs/AI-CONTENT-TUTOR.md`, 70/70 automated assertions passed).
 
 ---
 
@@ -178,10 +181,10 @@ GET    /api/v1/enrollments/metrics/organization               # View organizatio
 - **STAGE 1 — Authentication & RBAC** `[COMPLETE]`
 - **STAGE 2 — Course Management** `[COMPLETE]`
 - **STAGE 3 — Enrollment & Progress** `[COMPLETE]`
-- **STAGE 4 — Assessment Engine** `[NEXT]`
-- **STAGE 5 — Competency Engine**
-- **STAGE 6 — AI Features**
-- **STAGE 7 — Personalized Recommendations**
+- **STAGE 4 — Assessment Engine** `[COMPLETE]`
+- **STAGE 5 — Competency Engine** `[COMPLETE]`
+- **STAGE 6 — AI Content Generation & Course-Aware Tutor** `[COMPLETE]`
+- **STAGE 7 — Personalized Recommendations** `[NEXT]`
 - **STAGE 8 — Intelligent Trainer Matching**
 - **STAGE 9 — Certificates**
 - **STAGE 10 — Analytics**

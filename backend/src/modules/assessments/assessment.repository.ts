@@ -8,6 +8,8 @@ import {
   AssessmentStatus,
 } from './assessment.types';
 
+import { competencyService } from '../competencies/competency.service';
+
 export class AssessmentRepository {
   /**
    * Create new assessment
@@ -419,6 +421,26 @@ export class AssessmentRepository {
   }
 
   /**
+   * List all organization submissions for an assessment (Admin & Trainer)
+   */
+  async listSubmissionsForAssessment(
+    assessmentId: string,
+    organizationId: string
+  ): Promise<SubmissionRecord[]> {
+    const query = `
+      SELECT s.*, a.title as assessment_title,
+             TRIM(CONCAT(u.first_name, ' ', u.last_name)) as trainee_name
+      FROM assessment_submissions s
+      JOIN assessments a ON s.assessment_id = a.id
+      JOIN users u ON s.trainee_id = u.id
+      WHERE s.assessment_id = $1 AND s.organization_id = $2
+      ORDER BY s.created_at DESC;
+    `;
+    const result = await pool.query<SubmissionRecord>(query, [assessmentId, organizationId]);
+    return result.rows;
+  }
+
+  /**
    * Transactional automated submission grading & persistance
    */
   async submitAndGradeAttempt(params: {
@@ -433,13 +455,13 @@ export class AssessmentRepository {
 
       // 1. Fetch & lock submission row
       const subQuery = `
-        SELECT s.*, a.passing_score_percentage, a.id as a_id
+        SELECT s.*, a.passing_score_percentage, a.id as a_id, a.course_id
         FROM assessment_submissions s
         JOIN assessments a ON s.assessment_id = a.id
         WHERE s.id = $1 AND s.trainee_id = $2 AND s.organization_id = $3
         FOR UPDATE;
       `;
-      const subResult = await client.query<SubmissionRecord & { passing_score_percentage: number }>(
+      const subResult = await client.query<SubmissionRecord & { passing_score_percentage: number; course_id: string }>(
         subQuery,
         [params.submissionId, params.traineeId, params.organizationId]
       );
@@ -533,6 +555,19 @@ export class AssessmentRepository {
         JSON.stringify(params.submittedAnswers),
         params.submissionId,
       ]);
+
+      // 7. Synchronous Transactional Competency Reevaluation
+      try {
+        await competencyService.reevaluateTraineeCompetencies(
+          client,
+          params.traineeId,
+          params.organizationId,
+          submission.course_id
+        );
+      } catch (compErr: any) {
+        console.error(`⚠️ Competency Reevaluation Error during Assessment Submission:`, compErr.message);
+        throw compErr;
+      }
 
       await client.query('COMMIT');
       return updatedRes.rows[0];

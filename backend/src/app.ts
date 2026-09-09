@@ -9,11 +9,12 @@ import { requestLogger } from './middleware/requestLogger';
 import { notFoundHandler } from './middleware/notFound';
 import { errorHandler } from './middleware/errorHandler';
 import { healthRoutes } from './modules/health/health.routes';
-import { aiRoutes } from './modules/ai/ai.routes';
+import aiRoutes from './modules/ai/ai.routes';
 import { authRoutes } from './modules/auth/auth.routes';
 import { courseRoutes } from './modules/courses/course.routes';
 import enrollmentRoutes from './modules/enrollments/enrollment.routes';
 import assessmentRoutes from './modules/assessments/assessment.routes';
+import competencyRoutes from './modules/competencies/competency.routes';
 
 const app: Application = express();
 
@@ -77,6 +78,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/courses', courseRoutes);
 app.use('/api/v1/enrollments', enrollmentRoutes);
 app.use('/api/v1/assessments', assessmentRoutes);
+app.use('/api/v1/competencies', competencyRoutes);
 
 // 6. 404 & Global Error Middleware
 app.use(notFoundHandler);

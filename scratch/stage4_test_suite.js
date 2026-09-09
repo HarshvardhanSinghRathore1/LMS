@@ -64,15 +64,27 @@ async function runStage4TestSuite() {
     const orgAId = adminLoginRes.data?.data?.user?.organizationId;
     assert(adminAToken && orgAId, 'Admin User Org A logged in & token acquired');
 
+    const { Pool } = require('../backend/node_modules/pg');
+    const dbPool = new Pool({
+      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/capacity_connect',
+    });
+
     // Trainer A in Org cc
-    const trainerARes = await api('POST', '/auth/register', {
+    const trainerEmail = `trainer.orga.${uniqueSuffix}@test.com`;
+    await api('POST', '/auth/register', {
       name: 'Trainer User OrgA',
-      email: `trainer.orga.${uniqueSuffix}@test.com`,
+      email: trainerEmail,
       password: 'Password123!',
       organizationCode: 'cc',
     });
-    const trainerAToken = trainerARes.data?.data?.accessToken;
-    assert(trainerAToken, 'Trainer User Org A registered & token acquired');
+    // Update role to TRAINER in DB
+    await dbPool.query("UPDATE users SET role = 'TRAINER' WHERE email = $1", [trainerEmail]);
+    const trainerLoginRes = await api('POST', '/auth/login', {
+      email: trainerEmail,
+      password: 'Password123!',
+    });
+    const trainerAToken = trainerLoginRes.data?.data?.accessToken;
+    assert(trainerAToken && trainerLoginRes.data?.data?.user?.role === 'TRAINER', 'Trainer User Org A registered, promoted & token acquired');
 
     // Trainee A in Org cc
     const traineeARes = await api('POST', '/auth/register', {
@@ -110,7 +122,14 @@ async function runStage4TestSuite() {
     );
     const courseAId = courseARes.data?.data?.id;
     assert(courseAId, 'Course A created in Org A');
-    await api('POST', `/courses/${courseAId}/publish`, null, adminAToken);
+
+    // Add module & lesson so course structure is valid for publishing
+    const modRes = await api('POST', `/courses/${courseAId}/modules`, { title: 'Module 1', orderIndex: 0 }, adminAToken);
+    const modId = modRes.data?.data?.id;
+    await api('POST', `/courses/modules/${modId}/lessons`, { title: 'Lesson 1', durationMinutes: 10, orderIndex: 0, contentBody: 'Lesson 1 Content' }, adminAToken);
+
+    const pubCourseRes = await api('POST', `/courses/${courseAId}/publish`, null, adminAToken);
+    assert(pubCourseRes.status === 200, 'Course A published in Org A');
 
     // Create & Publish Course B in Org B (using Trainee B or create Admin B if needed)
     // Trainee B cannot create course, let's test cross tenant using courseAId directly against Org B.
@@ -294,7 +313,7 @@ async function runStage4TestSuite() {
     // ----------------------------------------------------
     console.log('\n--- TEST 7: ENROLLED TRAINEE ATTEMPT START ---');
     // Enroll Trainee A in Course A
-    await api('POST', `/enrollments/courses/${courseAId}`, null, traineeAToken);
+    await api('POST', '/enrollments', { courseId: courseAId }, traineeAToken);
 
     // Trainee A starts attempt
     const startRes1 = await api('POST', `/assessments/${assessmentId}/start`, null, traineeAToken);

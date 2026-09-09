@@ -43,15 +43,15 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[var(--onyx)] text-[var(--white-smoke)] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[var(--carbon-black)] border border-neutral-800 rounded-xl p-8 shadow-2xl space-y-6">
+    <main className="min-h-screen bg-[#0b090a] text-[#f5f3f4] flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-[#161a1d] border border-neutral-800 rounded-xl p-8 shadow-2xl space-y-6">
         {/* Header */}
         <div className="space-y-2 text-center">
-          <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--strawberry-red)] bg-red-950/40 px-3 py-1 rounded-full border border-red-900/40">
+          <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#e5383b] bg-red-950/40 px-3 py-1 rounded-full border border-red-900/40">
             SIH 2026 • Stage 1 Auth
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-white">Create Trainee Account</h1>
-          <p className="text-xs text-[var(--silver)]">Register under your organization to begin capacity building</p>
+          <p className="text-xs text-[#b1a7a6]">Register under your organization to begin capacity building</p>
         </div>
 
         {/* Role Security Notice */}
@@ -62,7 +62,7 @@ export default function RegisterPage() {
 
         {/* Error Alert */}
         {errorMsg && (
-          <div className="bg-red-950/50 border border-red-800 text-[var(--strawberry-red)] px-4 py-3 rounded-lg text-sm flex items-start gap-2">
+          <div className="bg-red-950/50 border border-red-800 text-[#e5383b] px-4 py-3 rounded-lg text-sm flex items-start gap-2">
             <span className="font-bold">⚠️</span>
             <span>{errorMsg}</span>
           </div>
@@ -71,7 +71,7 @@ export default function RegisterPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-semibold uppercase tracking-wider text-[var(--silver)]">
+            <label className="text-xs font-semibold uppercase tracking-wider text-[#b1a7a6]">
               Full Name
             </label>
             <input
@@ -80,12 +80,12 @@ export default function RegisterPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Jane Doe"
-              className="w-full bg-[var(--onyx)] border border-neutral-700 focus:border-[var(--strawberry-red)] rounded-lg px-4 py-2 text-sm text-white placeholder-neutral-500 outline-none transition-colors"
+              className="w-full bg-[#0b090a] border border-neutral-700 focus:border-[#e5383b] rounded-lg px-4 py-2 text-sm text-white placeholder-neutral-500 outline-none transition-colors"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold uppercase tracking-wider text-[var(--silver)]">
+            <label className="text-xs font-semibold uppercase tracking-wider text-[#b1a7a6]">
               Work Email
             </label>
             <input
@@ -94,12 +94,12 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@example.com"
-              className="w-full bg-[var(--onyx)] border border-neutral-700 focus:border-[var(--strawberry-red)] rounded-lg px-4 py-2 text-sm text-white placeholder-neutral-500 outline-none transition-colors"
+              className="w-full bg-[#0b090a] border border-neutral-700 focus:border-[#e5383b] rounded-lg px-4 py-2 text-sm text-white placeholder-neutral-500 outline-none transition-colors"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold uppercase tracking-wider text-[var(--silver)]">
+            <label className="text-xs font-semibold uppercase tracking-wider text-[#b1a7a6]">
               Organization Code
             </label>
             <input
@@ -108,12 +108,12 @@ export default function RegisterPage() {
               value={organizationCode}
               onChange={(e) => setOrganizationCode(e.target.value.toUpperCase())}
               placeholder="ORG001"
-              className="w-full bg-[var(--onyx)] border border-neutral-700 focus:border-[var(--strawberry-red)] rounded-lg px-4 py-2 text-sm text-white placeholder-neutral-500 outline-none font-mono transition-colors"
+              className="w-full bg-[#0b090a] border border-neutral-700 focus:border-[#e5383b] rounded-lg px-4 py-2 text-sm text-white placeholder-neutral-500 outline-none font-mono transition-colors"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold uppercase tracking-wider text-[var(--silver)]">
+            <label className="text-xs font-semibold uppercase tracking-wider text-[#b1a7a6]">
               Password
             </label>
             <input
@@ -122,14 +122,14 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="At least 8 characters"
-              className="w-full bg-[var(--onyx)] border border-neutral-700 focus:border-[var(--strawberry-red)] rounded-lg px-4 py-2 text-sm text-white placeholder-neutral-500 outline-none transition-colors"
+              className="w-full bg-[#0b090a] border border-neutral-700 focus:border-[#e5383b] rounded-lg px-4 py-2 text-sm text-white placeholder-neutral-500 outline-none transition-colors"
             />
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3 bg-[var(--mahogany-red)] hover:bg-[var(--strawberry-red)] disabled:opacity-50 text-white font-semibold text-sm rounded-lg transition-all shadow-lg flex items-center justify-center gap-2"
+            className="w-full py-3 bg-[#a4161a] hover:bg-[#e5383b] disabled:opacity-50 text-white font-semibold text-sm rounded-lg transition-all shadow-lg flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
               <>
@@ -143,9 +143,9 @@ export default function RegisterPage() {
         </form>
 
         {/* Footer Link */}
-        <div className="text-center pt-2 border-t border-neutral-800 text-xs text-[var(--silver)]">
+        <div className="text-center pt-2 border-t border-neutral-800 text-xs text-[#b1a7a6]">
           Already registered?{' '}
-          <Link href="/login" className="text-[var(--strawberry-red)] hover:underline font-semibold">
+          <Link href="/login" className="text-[#e5383b] hover:underline font-semibold">
             Sign In Here
           </Link>
         </div>

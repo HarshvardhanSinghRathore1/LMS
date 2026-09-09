@@ -16,6 +16,7 @@ export interface RetrievedChunk {
 export interface RetrievalOptions {
   topK?: number;
   similarityThreshold?: number;
+  courseId?: string;
 }
 
 export class VectorRetriever {
@@ -27,6 +28,7 @@ export class VectorRetriever {
 
   /**
    * Performs semantic vector search with mandatory multi-tenant organizationId isolation.
+   * Optionally filters by courseId when provided.
    */
   async search(
     query: string,
@@ -55,7 +57,7 @@ export class VectorRetriever {
     const vectorStr = `[${queryVector.join(',')}]`;
 
     // 2. Perform cosine similarity search (<=> operator calculates cosine distance)
-    const sql = `
+    let sql = `
       SELECT 
         id,
         document_id as "documentId",
@@ -68,11 +70,19 @@ export class VectorRetriever {
       WHERE organization_id = $2
         AND embedding IS NOT NULL
         AND (1 - (embedding <=> $1::vector)) >= $3
-      ORDER BY embedding <=> $1::vector ASC
-      LIMIT $4;
     `;
 
-    const { rows } = await pool.query(sql, [vectorStr, organizationId, similarityThreshold, topK]);
+    const params: any[] = [vectorStr, organizationId, similarityThreshold];
+
+    if (options.courseId) {
+      params.push(options.courseId);
+      sql += ` AND (metadata->>'courseId' = $${params.length} OR metadata->>'course_id' = $${params.length})`;
+    }
+
+    params.push(topK);
+    sql += ` ORDER BY embedding <=> $1::vector ASC LIMIT $${params.length};`;
+
+    const { rows } = await pool.query(sql, params);
 
     return rows.map((row) => ({
       id: row.id,

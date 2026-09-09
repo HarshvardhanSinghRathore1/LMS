@@ -36,6 +36,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Assessment, fetchAssessmentsApi } from '../../../lib/assessments';
+import { AITutorDrawer } from '../../../components/ai/AITutorDrawer';
 
 export default function CourseDetailPage() {
   const params = useParams();
@@ -53,6 +54,7 @@ export default function CourseDetailPage() {
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [showTutor, setShowTutor] = useState(false);
 
   const isManagementAllowed = user?.role === 'ADMIN' || user?.role === 'TRAINER';
   const isTrainee = user?.role === 'TRAINEE';
@@ -270,7 +272,7 @@ export default function CourseDetailPage() {
                 </div>
 
                 {isManagementAllowed && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {course.status === 'DRAFT' && (
                       <button
                         onClick={handlePublish}
@@ -289,6 +291,14 @@ export default function CourseDetailPage() {
                         <span>Archive Course</span>
                       </button>
                     )}
+                    {/* AI Content Generation quick-action */}
+                    <button
+                      onClick={() => router.push(`/ai-tools`)}
+                      className="px-4 py-2 bg-gradient-to-r from-purple-950 to-violet-900 hover:brightness-110 border border-purple-700/60 text-purple-300 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 shadow"
+                    >
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      <span>Generate AI Content</span>
+                    </button>
                   </div>
                 )}
 
@@ -513,6 +523,28 @@ export default function CourseDetailPage() {
           </div>
         )}
       </main>
+
+      {/* Floating AI Tutor Button — visible for enrolled trainees */}
+      {isTrainee && enrollment && enrollment.status !== 'DROPPED' && course && (
+        <button
+          onClick={() => setShowTutor(true)}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-[#660708] via-[#a4161a] to-[#e5383b] hover:brightness-110 text-white font-bold text-xs rounded-2xl shadow-2xl transition-all animate-pulse hover:animate-none"
+          title="Open Course AI Tutor"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Ask AI Tutor</span>
+        </button>
+      )}
+
+      {/* AI Tutor Sliding Drawer */}
+      {course && (
+        <AITutorDrawer
+          isOpen={showTutor}
+          onClose={() => setShowTutor(false)}
+          courseId={courseId}
+          courseTitle={course.title}
+        />
+      )}
     </ProtectedRoute>
   );
 }

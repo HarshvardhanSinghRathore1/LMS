@@ -5,12 +5,12 @@ import { Sparkles, Cpu, Database, Network, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 
 interface AIHealthState {
-  status: string;
-  activeProvider: { name: string; isConfigured: boolean };
-  providers: Array<{ name: string; isConfigured: boolean; activeModel: string }>;
-  embedding: { provider: string; model: string; dimension: number; status: string };
-  pgvector: { enabled: boolean; status: string };
-  contextService: { enabled: boolean; status: string; url: string };
+  status?: string;
+  activeProvider?: { name: string; isConfigured: boolean } | null;
+  providers?: Array<{ name: string; isConfigured: boolean; activeModel: string }>;
+  embedding?: { provider: string; model: string; dimension: number; status: string };
+  pgvector?: { enabled: boolean; status: string };
+  contextService?: { enabled: boolean; status: string; url: string };
 }
 
 export const AIFoundationCard: React.FC = () => {
@@ -47,6 +47,15 @@ export const AIFoundationCard: React.FC = () => {
     fetchAIHealth();
   }, []);
 
+  const providerName = aiState?.activeProvider?.name ?? 'OPENAI';
+  const isConfigured = aiState?.activeProvider?.isConfigured ?? false;
+  const embeddingModel = aiState?.embedding?.model ?? 'BAAI/bge-small-en-v1.5';
+  const embeddingDimension = aiState?.embedding?.dimension ?? 384;
+  const embeddingProvider = (aiState?.embedding?.provider ?? 'huggingface').toUpperCase();
+  const pgvectorEnabled = aiState?.pgvector?.enabled ?? true;
+  const contextStatus = (aiState?.contextService?.status ?? 'unavailable').toUpperCase();
+  const contextUrl = aiState?.contextService?.url ?? 'http://localhost:8000';
+
   return (
     <Card
       title="AI & RAG Infrastructure Foundation (Stage 0.5 Baseline)"
@@ -73,10 +82,10 @@ export const AIFoundationCard: React.FC = () => {
               <Badge variant="brand" size="sm">LANGCHAIN</Badge>
             </div>
             <div className="text-sm font-semibold text-white mt-1">
-              Active: <span className="text-strawberry-red uppercase">{aiState?.activeProvider.name || 'OPENAI'}</span>
+              Active: <span className="text-strawberry-red uppercase">{providerName}</span>
             </div>
             <div className="text-xs text-silver mt-0.5">
-              Status: {aiState?.activeProvider.isConfigured ? 'CONFIGURED' : 'NOT_CONFIGURED (Key missing)'}
+              Status: {isConfigured ? 'CONFIGURED' : 'NOT_CONFIGURED (Key missing)'}
             </div>
           </div>
           <div className="mt-3 pt-2 border-t border-silver/10 text-[11px] text-silver font-mono">
@@ -95,14 +104,14 @@ export const AIFoundationCard: React.FC = () => {
               <Badge variant="success" size="sm">LOCKED 384D</Badge>
             </div>
             <div className="text-xs font-mono text-white truncate mt-1">
-              {aiState?.embedding.model || 'BAAI/bge-small-en-v1.5'}
+              {embeddingModel}
             </div>
             <div className="text-xs text-silver mt-0.5">
-              Dimension: {aiState?.embedding.dimension || 384}d (Recall@5 Evaluated)
+              Dimension: {embeddingDimension}d (Recall@5 Evaluated)
             </div>
           </div>
           <div className="mt-3 pt-2 border-t border-silver/10 text-[11px] text-silver font-mono">
-            Provider: {aiState?.embedding.provider.toUpperCase()}
+            Provider: {embeddingProvider}
           </div>
         </div>
 
@@ -114,8 +123,8 @@ export const AIFoundationCard: React.FC = () => {
                 <Database className="w-4 h-4 text-strawberry-red" />
                 pgvector Store
               </span>
-              <Badge variant={aiState?.pgvector.enabled ? 'success' : 'neutral'} size="sm">
-                {aiState?.pgvector.enabled ? 'ENABLED' : 'DISABLED'}
+              <Badge variant={pgvectorEnabled ? 'success' : 'neutral'} size="sm">
+                {pgvectorEnabled ? 'ENABLED' : 'DISABLED'}
               </Badge>
             </div>
             <div className="text-sm font-semibold text-white mt-1">
@@ -138,8 +147,8 @@ export const AIFoundationCard: React.FC = () => {
                 <Network className="w-4 h-4 text-strawberry-red" />
                 Graphiti Context
               </span>
-              <Badge variant={aiState?.contextService.status === 'available' ? 'success' : 'neutral'} size="sm">
-                {aiState?.contextService.status.toUpperCase() || 'STANDBY'}
+              <Badge variant={contextStatus === 'AVAILABLE' ? 'success' : 'neutral'} size="sm">
+                {contextStatus || 'STANDBY'}
               </Badge>
             </div>
             <div className="text-sm font-semibold text-white mt-1">
@@ -150,7 +159,7 @@ export const AIFoundationCard: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 pt-2 border-t border-silver/10 text-[11px] text-silver font-mono truncate">
-            URL: {aiState?.contextService.url || 'http://localhost:8000'}
+            URL: {contextUrl}
           </div>
         </div>
       </div>
