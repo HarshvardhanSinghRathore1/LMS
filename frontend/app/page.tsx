@@ -33,7 +33,12 @@ import {
   Award,
   Sparkles,
   Bot,
+  BarChart3,
+  Bell,
+  ShieldAlert,
+  Brain,
 } from 'lucide-react';
+import { NotificationBell } from '../components/ui/NotificationBell';
 
 const COLOR_SWATCHES = [
   { name: 'Onyx', hex: '#0b090a', role: 'Primary App Background', bgClass: 'bg-[#0b090a]' },
@@ -137,9 +142,12 @@ export default function DashboardPage() {
               Digital Capacity Building & AI-Powered Learning Management Platform
             </p>
           </div>
-          <div className="text-right flex flex-col items-end gap-1">
-            <span className="text-xs font-mono text-silver">Current Stage</span>
-            <Badge variant="brand" size="md">STAGE 6 — AI CONTENT GENERATION &amp; COURSE-AWARE AI TUTOR</Badge>
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <div className="text-right flex flex-col items-end gap-1">
+              <span className="text-xs font-mono text-silver">Current Stage</span>
+              <Badge variant="brand" size="md">STAGE 11 — NOTIFICATIONS &amp; ENTERPRISE AUDIT</Badge>
+            </div>
           </div>
         </div>
 
@@ -318,6 +326,195 @@ export default function DashboardPage() {
               >
                 <Sparkles className="w-4 h-4" />
                 <span>Open AI Workspace</span>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      {/* STAGE 7 — PERSONALIZED RECOMMENDATIONS QUICK ACCESS CARD */}
+      <section>
+        <Card
+          title="Stage 7 — Personalized Recommendations &amp; Adaptive Learning Path Engine"
+          subtitle="Deterministic PostgreSQL 60% Skill Gap + 25% Competency Mapping + 15% Completion Rate recommendation model"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-red-900/40">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[var(--strawberry-red)]" />
+                Recommendations &amp; Adaptive Pathway Hub
+              </h4>
+              <p className="text-xs text-neutral-400">
+                Trainees receive explainable course suggestions targeting verified competency gaps and an adaptive step-by-step learning pathway.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <Link
+                href="/recommendations"
+                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-[#660708] via-[#a4161a] to-[#e5383b] hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Recommendations Workspace</span>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      {/* STAGE 8 — INTELLIGENT TRAINER MATCHING QUICK ACCESS CARD */}
+      <section>
+        <Card
+          title="Stage 8 — Intelligent Trainer Matching Engine"
+          subtitle="Deterministic PostgreSQL 40% Skill Gap + 25% Rating + 20% Experience + 15% Capacity matching engine & 1-on-1 session requests"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-indigo-900/40">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-indigo-400" />
+                Smart Trainer Matching &amp; Session Management Hub
+              </h4>
+              <p className="text-xs text-neutral-400">
+                Connect trainees with verified trainers in the same organization using explainable 4-factor scoring and transactional row-locking session requests.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <Link
+                href="/trainer-matching"
+                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-indigo-900 via-indigo-700 to-purple-800 hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-indigo-500/30"
+              >
+                <UserCheck className="w-4 h-4" />
+                <span>Trainer Matching Hub</span>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      {/* STAGE 9 — VERIFIED CERTIFICATES QUICK ACCESS CARD */}
+      <section>
+        <Card
+          title="Stage 9 — Course Completion Verification & Verified Certificate Generation Engine"
+          subtitle="100% deterministic course completion verification, transaction-safe issuance, SHA-256 tamper-proof hash, and unauthenticated public credential verification"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-emerald-900/40">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <Award className="w-4 h-4 text-emerald-400" />
+                Verified Certificate Vault &amp; Cryptographic Verification
+              </h4>
+              <p className="text-xs text-neutral-400">
+                Trainees can claim tamper-proof certificates upon 100% course &amp; lesson completion + passing all published assessments (≥70%). Public verification available without authentication.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <Link
+                href="/certificates"
+                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-600 hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-emerald-500/30"
+              >
+                <Award className="w-4 h-4" />
+                <span>Certificate Vault</span>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      {/* STAGE 10 — ORGANIZATION-WIDE ANALYTICS & EXECUTIVE DASHBOARD */}
+      <section>
+        <Card
+          title="Stage 10 — Organization-Wide Analytics & Executive Dashboard"
+          subtitle="Deterministic PostgreSQL analytics, enrollment funnels, assessment pass rates, competency coverage, and leaderboards"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-sky-900/40">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-sky-400" />
+                Executive KPIs, Skill Heatmap & Leaderboard Hub
+              </h4>
+              <p className="text-xs text-neutral-400">
+                Admins and Trainers get real-time organizational funnel metrics, skill gap distributions, and course leaderboards. Trainees view personal progress stats.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <Link
+                href="/analytics"
+                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-sky-900 via-blue-800 to-indigo-700 hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-sky-500/30"
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Analytics Dashboard</span>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      {/* STAGE 11 — NOTIFICATIONS & ENTERPRISE AUDIT TRAIL */}
+      <section>
+        <Card
+          title="Stage 11 — Notifications & Enterprise Audit Trail Engine"
+          subtitle="Event-driven in-app notifications, unread counters, and immutable organization-scoped audit logging for compliance"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-amber-900/40">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <Bell className="w-4 h-4 text-amber-400" />
+                Notification Center & Enterprise Audit Explorer
+              </h4>
+              <p className="text-xs text-neutral-400">
+                Manage personal activity notifications and achievements. Administrators can explore immutable audit logs and export compliance records.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <Link
+                href="/notifications"
+                className="flex-1 md:flex-initial px-4 py-2.5 bg-carbon-black hover:bg-white/10 text-white text-xs font-bold rounded-lg transition-all border border-white/10 flex items-center justify-center gap-2"
+              >
+                <Bell className="w-4 h-4 text-amber-400" />
+                <span>Notifications</span>
+              </Link>
+              {user?.role === 'ADMIN' && (
+                <Link
+                  href="/admin/audit"
+                  className="flex-1 md:flex-initial px-4 py-2.5 bg-gradient-to-r from-amber-900 via-red-800 to-mahogany-red hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-amber-500/30"
+                >
+                  <ShieldAlert className="w-4 h-4 text-white" />
+                  <span>Audit Explorer</span>
+                </Link>
+              )}
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      {/* STAGE 12 — ADVANCED RAG & PERSISTENT LEARNER CONTEXT */}
+      <section>
+        <Card
+          title="Stage 12 — Advanced RAG & Persistent Learner Context Engine"
+          subtitle="Multi-stream context fusion: pgvector 384d semantic search, persistent temporal learner context facts, and citation-backed grounded answers"
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-indigo-900/40">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <Brain className="w-4 h-4 text-indigo-400" />
+                Contextual AI Learning Assistant &amp; Learner Context Hub
+              </h4>
+              <p className="text-xs text-neutral-400">
+                Ask course questions grounded in verified documents with zero hallucinations. Includes automated struggle-concept tracking and multi-stream fusion.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <Link
+                href="/my-learning/assistant"
+                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-indigo-900 via-purple-800 to-violet-700 hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-indigo-500/30"
+              >
+                <Bot className="w-4 h-4" />
+                <span>AI Learning Assistant</span>
               </Link>
             </div>
           </div>

@@ -15,6 +15,15 @@ import { courseRoutes } from './modules/courses/course.routes';
 import enrollmentRoutes from './modules/enrollments/enrollment.routes';
 import assessmentRoutes from './modules/assessments/assessment.routes';
 import competencyRoutes from './modules/competencies/competency.routes';
+import recommendationRoutes from './modules/recommendations/recommendation.routes';
+
+import trainerMatchingRoutes from './modules/trainerMatching/trainerMatching.routes';
+
+import certificateRoutes from './modules/certificates/certificate.routes';
+import analyticsRoutes from './modules/analytics/analytics.routes';
+import notificationRoutes from './modules/notifications/notifications.routes';
+import auditRoutes from './modules/audit/audit.routes';
+import { ragRoutes } from './modules/rag/rag.routes';
 
 const app: Application = express();
 
@@ -79,6 +88,13 @@ app.use('/api/v1/courses', courseRoutes);
 app.use('/api/v1/enrollments', enrollmentRoutes);
 app.use('/api/v1/assessments', assessmentRoutes);
 app.use('/api/v1/competencies', competencyRoutes);
+app.use('/api/v1/recommendations', recommendationRoutes);
+app.use('/api/v1/trainer-matching', trainerMatchingRoutes);
+app.use('/api/v1/certificates', certificateRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/audit', auditRoutes);
+app.use('/api/v1/rag', ragRoutes);
 
 // 6. 404 & Global Error Middleware
 app.use(notFoundHandler);

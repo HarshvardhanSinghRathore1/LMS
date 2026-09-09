@@ -7,6 +7,7 @@ import {
   LessonProgressRecord,
   OrganizationEnrollmentMetrics,
 } from './enrollment.types';
+import { eventDispatcher } from '../../events/eventDispatcher';
 
 export class EnrollmentService {
   /**
@@ -45,12 +46,26 @@ export class EnrollmentService {
     const totalLessonsCount = await enrollmentRepository.countTotalLessonsForCourse(courseId);
 
     // 5. Create enrollment
-    return enrollmentRepository.createEnrollment({
+    const enrollment = await enrollmentRepository.createEnrollment({
       organizationId,
       courseId,
       traineeId,
       totalLessonsCount,
     });
+
+    await eventDispatcher.dispatch({
+      type: 'ENROLLMENT_CREATED',
+      organizationId,
+      actor: { id: traineeId, role: 'TRAINEE' },
+      payload: {
+        enrollmentId: enrollment.id,
+        courseId,
+        courseTitle: course.title,
+        traineeId,
+      },
+    });
+
+    return enrollment;
   }
 
   /**
@@ -114,13 +129,28 @@ export class EnrollmentService {
     completed: boolean
   ): Promise<{ enrollment: CourseEnrollmentRecord; lessonProgress: LessonProgressRecord }> {
     try {
-      return await enrollmentRepository.updateLessonProgressAndRecalculate({
+      const result = await enrollmentRepository.updateLessonProgressAndRecalculate({
         enrollmentId,
         lessonId,
         traineeId,
         organizationId,
         completed,
       });
+
+      if (result.enrollment.status === 'COMPLETED' && Number(result.enrollment.progress_percentage) >= 100) {
+        await eventDispatcher.dispatch({
+          type: 'COURSE_COMPLETED',
+          organizationId,
+          actor: { id: traineeId, role: 'TRAINEE' },
+          payload: {
+            enrollmentId: result.enrollment.id,
+            courseId: result.enrollment.course_id,
+            traineeId,
+          },
+        });
+      }
+
+      return result;
     } catch (error: any) {
       if (error.message === 'ENROLLMENT_NOT_FOUND') {
         throw ApiError.notFound('Enrollment record not found');

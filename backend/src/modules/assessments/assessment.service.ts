@@ -16,6 +16,7 @@ import {
   CreateQuestionInput,
   UpdateQuestionInput,
 } from './assessment.schemas';
+import { eventDispatcher } from '../../events/eventDispatcher';
 
 export class AssessmentService {
   /**
@@ -389,12 +390,27 @@ export class AssessmentService {
     submittedAnswers: Record<string, any>
   ): Promise<SubmissionRecord> {
     try {
-      return await assessmentRepository.submitAndGradeAttempt({
+      const graded = await assessmentRepository.submitAndGradeAttempt({
         submissionId,
         traineeId,
         organizationId,
         submittedAnswers,
       });
+
+      await eventDispatcher.dispatch({
+        type: 'ASSESSMENT_EVALUATED',
+        organizationId,
+        actor: { id: traineeId, role: 'TRAINEE' },
+        payload: {
+          attemptId: graded.id,
+          assessmentId: graded.assessment_id,
+          traineeId,
+          score: Number(graded.score_percentage || 0),
+          passed: graded.passed,
+        },
+      });
+
+      return graded;
     } catch (error: any) {
       if (error.message === 'SUBMISSION_NOT_FOUND') {
         throw ApiError.notFound('Assessment attempt submission record not found');

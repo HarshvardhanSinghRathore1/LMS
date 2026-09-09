@@ -12,26 +12,29 @@ export class EnrollmentRepository {
   /**
    * Count total lessons in a course hierarchy
    */
-  async countTotalLessonsForCourse(courseId: string): Promise<number> {
+  async countTotalLessonsForCourse(courseId: string, executor: any = pool): Promise<number> {
     const query = `
       SELECT COUNT(l.id)::int as total
       FROM course_lessons l
       JOIN course_modules m ON l.module_id = m.id
       WHERE m.course_id = $1;
     `;
-    const result = await pool.query<{ total: number }>(query, [courseId]);
+    const result = await executor.query(query, [courseId]);
     return result.rows[0]?.total || 0;
   }
 
   /**
    * Create new enrollment for a trainee
    */
-  async createEnrollment(data: {
-    organizationId: string;
-    courseId: string;
-    traineeId: string;
-    totalLessonsCount: number;
-  }): Promise<CourseEnrollmentRecord> {
+  async createEnrollment(
+    data: {
+      organizationId: string;
+      courseId: string;
+      traineeId: string;
+      totalLessonsCount: number;
+    },
+    executor: any = pool
+  ): Promise<CourseEnrollmentRecord> {
     const query = `
       INSERT INTO course_enrollments (
         organization_id,
@@ -46,7 +49,7 @@ export class EnrollmentRepository {
       RETURNING *;
     `;
     const values = [data.organizationId, data.courseId, data.traineeId, data.totalLessonsCount];
-    const result = await pool.query<CourseEnrollmentRecord>(query, values);
+    const result = await executor.query(query, values);
     return result.rows[0];
   }
 
@@ -102,13 +105,14 @@ export class EnrollmentRepository {
   async findEnrollmentByCourseAndTrainee(
     courseId: string,
     traineeId: string,
-    organizationId: string
+    organizationId: string,
+    executor: any = pool
   ): Promise<CourseEnrollmentRecord | null> {
     const query = `
       SELECT * FROM course_enrollments
       WHERE course_id = $1 AND trainee_id = $2 AND organization_id = $3;
     `;
-    const result = await pool.query<CourseEnrollmentRecord>(query, [
+    const result = await executor.query(query, [
       courseId,
       traineeId,
       organizationId,
