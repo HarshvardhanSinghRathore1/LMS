@@ -10,8 +10,10 @@ export const generateNotesSchema = z.object({
 export const generateMcqsSchema = z.object({
   courseId: z.string().uuid('Invalid course ID format'),
   moduleId: z.string().uuid('Invalid module ID format').optional(),
-  count: z.number().int().min(1, 'At least 1 question must be requested').max(10, 'Maximum 10 questions allowed per generation').default(3),
-  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).default('MEDIUM'),
+  lessonId: z.string().uuid('Invalid lesson ID format').optional(),
+  topic: z.string().max(255).optional(),
+  count: z.number().int().min(1, 'At least 1 question must be requested').max(20, 'Maximum 20 questions allowed per generation').default(5),
+  difficulty: z.enum(['BALANCED', 'EASY', 'MEDIUM', 'HARD']).default('BALANCED'),
 });
 
 export const mcqContentSchema = z.object({
@@ -21,9 +23,23 @@ export const mcqContentSchema = z.object({
   correctAnswer: z.string().min(1, 'Correct answer string is required'),
   points: z.number().int().positive('Points must be greater than 0').default(10),
   explanation: z.string().optional().default(''),
+  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).optional(),
+  questionCategory: z.string().optional(),
+  sourceReference: z.string().optional(),
 }).refine((data) => data.options.includes(data.correctAnswer), {
   message: 'MCQ correct answer must correspond to one of the provided options',
   path: ['correctAnswer'],
+});
+
+export const updateGeneratedItemSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  content: z.any(),
+  reviewNotes: z.string().max(1000).optional(),
+});
+
+export const regenerateMcqSchema = z.object({
+  feedback: z.string().max(500).optional(),
+  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).optional(),
 });
 
 export const reviewItemSchema = z.object({
@@ -34,7 +50,8 @@ export const reviewItemSchema = z.object({
 });
 
 export const tutorChatSchema = z.object({
-  courseId: z.string().uuid('Invalid course ID format'),
+  courseId: z.string().uuid('Invalid course ID format').optional(),
+  lessonId: z.string().uuid('Invalid lesson ID format').optional(),
   conversationId: z.string().uuid('Invalid conversation ID format').optional(),
   message: z.string().min(1, 'Message cannot be empty').max(2000, 'Message cannot exceed 2000 characters'),
 });
@@ -49,6 +66,8 @@ export const aiQuerySchema = z.object({
 
 export type GenerateNotesInput = z.infer<typeof generateNotesSchema>;
 export type GenerateMcqsInput = z.infer<typeof generateMcqsSchema>;
+export type UpdateGeneratedItemInput = z.infer<typeof updateGeneratedItemSchema>;
+export type RegenerateMcqInput = z.infer<typeof regenerateMcqSchema>;
 export type ReviewItemInput = z.infer<typeof reviewItemSchema>;
 export type TutorChatInput = z.infer<typeof tutorChatSchema>;
 export type AIQueryInput = z.infer<typeof aiQuerySchema>;

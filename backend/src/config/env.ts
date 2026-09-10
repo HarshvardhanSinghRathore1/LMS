@@ -47,6 +47,11 @@ const envSchema = z.object({
   AI_TIMEOUT_MS: z.string().transform((val) => parseInt(val, 10)).default('30000'),
   AI_MAX_TOKENS: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)),
   AI_TEMPERATURE: z.string().transform((val) => parseFloat(val)).default('0.7'),
+  // Stage 13 Multimedia & Transcription Configuration
+  STT_PROVIDER: z.enum(['gemini', 'openai', 'whisper', 'none']).default('gemini'),
+  OPENAI_WHISPER_MODEL: z.string().default('whisper-1'),
+  UPLOAD_DIR: z.string().default('uploads'),
+  YOUTUBE_API_KEY: z.string().optional(),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -88,6 +93,14 @@ export const config = {
     timeoutMs: parsedEnv.data.AI_TIMEOUT_MS,
     maxTokens: parsedEnv.data.AI_MAX_TOKENS,
     temperature: parsedEnv.data.AI_TEMPERATURE,
+  },
+  transcription: {
+    provider: parsedEnv.data.STT_PROVIDER,
+    whisperModel: parsedEnv.data.OPENAI_WHISPER_MODEL,
+    uploadDir: parsedEnv.data.UPLOAD_DIR,
+  },
+  youtube: {
+    apiKey: parsedEnv.data.YOUTUBE_API_KEY,
   },
   embedding: {
     provider: parsedEnv.data.EMBEDDING_PROVIDER,

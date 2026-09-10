@@ -38,6 +38,27 @@ router.post(
   aiController.reviewGeneratedItem.bind(aiController)
 );
 
+// 4b. Regenerate Individual MCQ Item (ADMIN & TRAINER)
+router.post(
+  '/generated-items/:id/regenerate',
+  authorize('ADMIN', 'TRAINER'),
+  aiController.regenerateSingleMcq.bind(aiController)
+);
+
+// 4c. Update/Edit Generated Item (ADMIN & TRAINER)
+router.patch(
+  '/generated-items/:id',
+  authorize('ADMIN', 'TRAINER'),
+  aiController.updateGeneratedItem.bind(aiController)
+);
+
+// 4d. Delete Generated Item (ADMIN & TRAINER)
+router.delete(
+  '/generated-items/:id',
+  authorize('ADMIN', 'TRAINER'),
+  aiController.deleteGeneratedItem.bind(aiController)
+);
+
 // 5. Course-Aware AI Tutor RAG Chat (TRAINEE, TRAINER, ADMIN)
 router.post(
   '/tutor/chat',
@@ -50,6 +71,20 @@ router.get(
   '/tutor/conversations',
   authorize('TRAINEE', 'TRAINER', 'ADMIN'),
   aiController.listConversations.bind(aiController)
+);
+
+// 7. Get Tutor Conversation Messages (TRAINEE, TRAINER, ADMIN)
+router.get(
+  '/tutor/conversations/:id',
+  authorize('TRAINEE', 'TRAINER', 'ADMIN'),
+  aiController.getConversation.bind(aiController)
+);
+
+// 8. Delete Tutor Conversation (TRAINEE, TRAINER, ADMIN)
+router.delete(
+  '/tutor/conversations/:id',
+  authorize('TRAINEE', 'TRAINER', 'ADMIN'),
+  aiController.deleteConversation.bind(aiController)
 );
 
 export default router;

@@ -36,6 +36,9 @@ export interface GeneratedMcqContent {
   correctAnswer: string;
   points: number;
   explanation?: string;
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+  questionCategory?: string;
+  sourceReference?: string;
 }
 
 export interface GeneratedNotesContent {

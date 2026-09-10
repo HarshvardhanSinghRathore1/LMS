@@ -42,11 +42,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse 
   const mainNavItems: NavItem[] = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
     { label: 'My Learning', href: '/my-learning', icon: GraduationCap, roles: ['TRAINEE'] },
+    { label: 'AI Study Tutor', href: '/my-learning/assistant', icon: Bot, roles: ['TRAINEE'], badge: 'AI' },
     { label: 'Course Catalog', href: '/courses', icon: BookOpen },
     { label: 'Assessments', href: '/assessments', icon: CheckSquare },
     { label: 'Competencies', href: '/competencies', icon: Award },
     { label: 'AI Recommendations', href: '/recommendations', icon: Sparkles, roles: ['TRAINEE'], badge: 'AI' },
-    { label: 'AI Tutor & Tools', href: '/ai-tools', icon: Bot, badge: 'RAG' },
+    { label: 'AI Content Studio', href: '/ai-tools', icon: Sparkles, roles: ['TRAINER', 'ADMIN'], badge: 'AI' },
     { label: 'Certificates', href: '/certificates', icon: ShieldCheck, roles: ['TRAINEE', 'ADMIN'] },
     { label: 'Trainer Matching', href: '/trainer-matching', icon: Users, roles: ['TRAINEE', 'TRAINER'] },
     { label: 'Analytics', href: '/analytics', icon: BarChart3 },

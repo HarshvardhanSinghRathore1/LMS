@@ -374,27 +374,45 @@ export const ContextualAIAssistant: React.FC = () => {
       </div>
 
       {/* 3. Starter Suggestions Bar */}
-      <div className="px-4 py-2 bg-slate-900/40 border-t border-slate-800/60 flex items-center gap-2 overflow-x-auto text-[11px]">
+      <div className="px-4 py-2.5 bg-slate-900/60 border-t border-slate-800/80 flex items-center gap-2 overflow-x-auto text-[11px] scrollbar-thin">
         <span className="text-slate-500 font-medium whitespace-nowrap flex items-center gap-1">
-          <Sparkles className="w-3 h-3 text-indigo-400" /> Quick Prompts:
+          <Sparkles className="w-3 h-3 text-indigo-400" /> Quick Actions:
         </span>
         <button
-          onClick={() => handleSend(undefined, 'What are the main concepts covered in this course?')}
-          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+          onClick={() => handleSend(undefined, 'Explain this concept step by step.')}
+          className="whitespace-nowrap px-3 py-1 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
         >
-          Course Overview
+          Explain this
         </button>
         <button
-          onClick={() => handleSend(undefined, 'Can you explain the key lesson topics step-by-step?')}
-          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+          onClick={() => handleSend(undefined, 'Summarize what I learned in this lesson.')}
+          className="whitespace-nowrap px-3 py-1 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
         >
-          Step-by-Step Breakdown
+          Summarize this lesson
         </button>
         <button
-          onClick={() => handleSend(undefined, 'How can I prepare for the module assessments?')}
-          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+          onClick={() => handleSend(undefined, 'Give me a clear, practical example with code or diagrams.')}
+          className="whitespace-nowrap px-3 py-1 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
         >
-          Assessment Guidance
+          Give me an example
+        </button>
+        <button
+          onClick={() => handleSend(undefined, 'Quiz me on the key concepts of this topic.')}
+          className="whitespace-nowrap px-3 py-1 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
+        >
+          Quiz me
+        </button>
+        <button
+          onClick={() => handleSend(undefined, "I don't understand this topic, explain it simply like I'm a beginner.")}
+          className="whitespace-nowrap px-3 py-1 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
+        >
+          Explain simply
+        </button>
+        <button
+          onClick={() => handleSend(undefined, 'Give me 5 practice questions about this topic with solutions.')}
+          className="whitespace-nowrap px-3 py-1 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/60 transition"
+        >
+          Give me practice questions
         </button>
       </div>
 
@@ -404,7 +422,7 @@ export const ContextualAIAssistant: React.FC = () => {
           type="text"
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
-          placeholder="Ask a question grounded in your course material..."
+          placeholder="Ask anything about your studies or course material..."
           disabled={isLoading}
           className="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
         />

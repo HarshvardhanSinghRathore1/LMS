@@ -56,9 +56,15 @@ export interface RAGCitation {
   courseId: string;
   moduleId?: string;
   lessonId?: string;
+  resourceId?: string;
   courseTitle?: string;
   moduleTitle?: string;
   lessonTitle?: string;
+  sourceType?: 'course_material' | 'video_transcript' | 'course_pdf' | 'lesson_notes';
+  sourceBadge?: string;
+  startTime?: number;
+  endTime?: number;
+  page?: number;
   title: string;
   similarity: number;
   contentSnippet?: string;

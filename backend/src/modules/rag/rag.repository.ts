@@ -489,6 +489,23 @@ export class RAGRepository {
     return res.rows;
   }
 
+  async getRecentConversationMessages(
+    conversationId: string,
+    limit: number = 8
+  ): Promise<TutorMessageRecord[]> {
+    const query = `
+      SELECT * FROM (
+        SELECT * FROM ai_tutor_messages
+        WHERE conversation_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2
+      ) sub
+      ORDER BY created_at ASC;
+    `;
+    const res = await pool.query<TutorMessageRecord>(query, [conversationId, limit]);
+    return res.rows;
+  }
+
   async createMessage(data: {
     conversationId: string;
     role: ChatRole;
@@ -515,6 +532,20 @@ export class RAGRepository {
     );
 
     return res.rows[0];
+  }
+
+  async deleteConversation(
+    conversationId: string,
+    organizationId: string,
+    userId: string
+  ): Promise<boolean> {
+    const query = `
+      DELETE FROM ai_tutor_conversations
+      WHERE id = $1 AND organization_id = $2 AND trainee_id = $3
+      RETURNING id;
+    `;
+    const res = await pool.query(query, [conversationId, organizationId, userId]);
+    return (res.rowCount ?? 0) > 0;
   }
 }
 

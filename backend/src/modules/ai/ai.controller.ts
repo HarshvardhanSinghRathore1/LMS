@@ -1,6 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { aiService } from './ai.service';
-import { generateNotesSchema, generateMcqsSchema, reviewItemSchema, tutorChatSchema, aiQuerySchema } from './ai.schemas';
+import {
+  generateNotesSchema,
+  generateMcqsSchema,
+  reviewItemSchema,
+  tutorChatSchema,
+  aiQuerySchema,
+  regenerateMcqSchema,
+  updateGeneratedItemSchema,
+} from './ai.schemas';
 
 export class AIController {
   /**
@@ -39,6 +47,74 @@ export class AIController {
         success: true,
         data: items,
         message: `Successfully generated ${items.length} MCQ item(s) in PENDING_REVIEW status`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/ai/generated-items/:id/regenerate
+   */
+  async regenerateSingleMcq(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const organizationId = req.user!.organizationId;
+      const creatorId = req.user!.id;
+      const itemId = req.params.id;
+      const input = regenerateMcqSchema.parse(req.body);
+
+      const updated = await aiService.regenerateSingleMcq(organizationId, creatorId, itemId, input);
+
+      res.status(200).json({
+        success: true,
+        data: updated,
+        message: 'MCQ regenerated successfully with fresh grounded question',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PATCH /api/v1/ai/generated-items/:id
+   */
+  async updateGeneratedItem(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const organizationId = req.user!.organizationId;
+      const itemId = req.params.id;
+      const input = updateGeneratedItemSchema.parse(req.body);
+
+      const updated = await aiService.updateGeneratedItem(
+        organizationId,
+        itemId,
+        input.content,
+        input.title,
+        input.reviewNotes
+      );
+
+      res.status(200).json({
+        success: true,
+        data: updated,
+        message: 'Generated item updated successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /api/v1/ai/generated-items/:id
+   */
+  async deleteGeneratedItem(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const organizationId = req.user!.organizationId;
+      const itemId = req.params.id;
+
+      const result = await aiService.deleteGeneratedItem(organizationId, itemId);
+
+      res.status(200).json({
+        success: true,
+        message: result.message,
       });
     } catch (error) {
       next(error);
@@ -129,6 +205,47 @@ export class AIController {
         success: true,
         data: conversations,
         message: 'Retrieved tutor conversation threads',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/ai/tutor/conversations/:id
+   */
+  async getConversation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const organizationId = req.user!.organizationId;
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      const result = await aiService.getConversation(organizationId, userId, id);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Retrieved conversation messages',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /api/v1/ai/tutor/conversations/:id
+   */
+  async deleteConversation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const organizationId = req.user!.organizationId;
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      const result = await aiService.deleteConversation(organizationId, userId, id);
+
+      res.status(200).json({
+        success: true,
+        message: result.message,
       });
     } catch (error) {
       next(error);

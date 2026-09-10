@@ -19,6 +19,7 @@ interface AITutorDrawerProps {
   onClose: () => void;
   courseId: string;
   courseTitle: string;
+  onCitationClick?: (citation: Citation) => void;
 }
 
 export const AITutorDrawer: React.FC<AITutorDrawerProps> = ({
@@ -26,6 +27,7 @@ export const AITutorDrawer: React.FC<AITutorDrawerProps> = ({
   onClose,
   courseId,
   courseTitle,
+  onCitationClick,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -41,7 +43,7 @@ export const AITutorDrawer: React.FC<AITutorDrawerProps> = ({
         {
           id: 'welcome',
           role: 'assistant',
-          content: `Hello! I am your AI Study Assistant for **${courseTitle}**. Ask me any question about the course material, key concepts, or lesson contents!`,
+          content: `Hello! I am your AI Study Assistant for **${courseTitle}**. Ask me any question about the course material, video lectures, PDF notes, or lesson concepts!`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -100,9 +102,9 @@ export const AITutorDrawer: React.FC<AITutorDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-[#0b090a] border-l border-silver/20 shadow-2xl z-50 flex flex-col transition-all">
+    <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-[#0b090a] border-l border-neutral-800 shadow-2xl z-50 flex flex-col transition-all">
       {/* Drawer Header */}
-      <div className="p-4 bg-[#161a1d] border-b border-silver/15 flex items-center justify-between">
+      <div className="p-4 bg-[#161a1d] border-b border-neutral-800 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#660708] to-[#a4161a] flex items-center justify-center text-white shadow-md">
             <Bot className="w-5 h-5" />
@@ -112,12 +114,12 @@ export const AITutorDrawer: React.FC<AITutorDrawerProps> = ({
               <h3 className="text-sm font-bold text-white">Course AI Tutor</h3>
               <Badge variant="danger" size="sm">RAG ENABLED</Badge>
             </div>
-            <p className="text-[11px] text-silver font-mono truncate max-w-[260px]">{courseTitle}</p>
+            <p className="text-[11px] text-neutral-400 font-mono truncate max-w-[260px]">{courseTitle}</p>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-neutral-800 text-silver hover:text-white transition-colors"
+          className="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -130,7 +132,7 @@ export const AITutorDrawer: React.FC<AITutorDrawerProps> = ({
             key={msg.id}
             className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
           >
-            <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] text-silver/60 font-mono">
+            <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] text-neutral-500 font-mono">
               <span>{msg.role === 'user' ? 'You' : 'AI Tutor'}</span>
               <span>•</span>
               <span>{msg.timestamp}</span>
@@ -146,32 +148,60 @@ export const AITutorDrawer: React.FC<AITutorDrawerProps> = ({
               className={`p-3.5 rounded-xl max-w-[90%] leading-relaxed ${
                 msg.role === 'user'
                   ? 'bg-[var(--mahogany-red)] text-white rounded-br-none shadow-md'
-                  : 'bg-carbon-black border border-silver/20 text-white-smoke rounded-bl-none shadow-lg'
+                  : 'bg-neutral-900 border border-neutral-800 text-neutral-200 rounded-bl-none shadow-lg'
               }`}
             >
               <div className="whitespace-pre-wrap">{msg.content}</div>
 
               {/* Citations section */}
               {msg.citations && msg.citations.length > 0 && (
-                <div className="mt-3 pt-2.5 border-t border-silver/15 space-y-1.5">
-                  <div className="text-[10px] font-bold text-silver uppercase tracking-wider flex items-center gap-1">
+                <div className="mt-3 pt-2.5 border-t border-neutral-800 space-y-1.5">
+                  <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
                     <FileText className="w-3 h-3 text-[var(--strawberry-red)]" />
-                    Grounded Source Citations ({msg.citations.length})
+                    Grounded Citations ({msg.citations.length})
                   </div>
-                  <div className="space-y-1">
-                    {msg.citations.map((cite, idx) => (
-                      <div
-                        key={idx}
-                        className="p-1.5 rounded bg-onyx border border-silver/10 flex items-center justify-between text-[10px] font-mono text-silver"
-                      >
-                        <span className="truncate max-w-[220px] font-semibold text-white">{cite.title}</span>
-                        {cite.similarityScore !== undefined && (
-                          <span className="text-emerald-400 font-bold shrink-0">
-                            {(cite.similarityScore * 100).toFixed(0)}% match
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                  <div className="space-y-1.5">
+                    {msg.citations.map((cite, idx) => {
+                      const isVideo = cite.sourceType === 'video_transcript' || cite.title?.startsWith('📹');
+                      const isPdf = cite.sourceType === 'course_pdf' || cite.title?.startsWith('📄');
+                      const score = cite.similarityScore ?? cite.similarity;
+
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            if (onCitationClick) onCitationClick(cite);
+                          }}
+                          className="w-full text-left p-2 rounded-lg bg-neutral-950/80 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 flex items-center justify-between text-[11px] text-neutral-300 transition-all group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-xs shrink-0">
+                              {isVideo ? '📹' : isPdf ? '📄' : '📘'}
+                            </span>
+                            <div className="min-w-0">
+                              <span className="font-semibold text-white truncate block max-w-[220px]">
+                                {cite.title}
+                              </span>
+                              {cite.sourceBadge && (
+                                <span className="text-[10px] text-neutral-400 block">
+                                  {cite.sourceBadge}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            {score !== undefined && (
+                              <span className="text-emerald-400 font-bold text-[10px]">
+                                {(score * 100).toFixed(0)}%
+                              </span>
+                            )}
+                            <ChevronRight className="w-3 h-3 text-neutral-500 group-hover:text-neutral-300 transition-transform group-hover:translate-x-0.5" />
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -187,24 +217,93 @@ export const AITutorDrawer: React.FC<AITutorDrawerProps> = ({
         )}
 
         {error && (
-          <div className="p-3 bg-dark-garnet/40 border border-strawberry-red/50 rounded-lg text-xs text-strawberry-red flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
+          <div className="p-3 bg-red-950/40 border border-red-800/60 rounded-lg text-xs text-red-300 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => {
+                const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+                if (lastUserMsg) {
+                  setInputMessage(lastUserMsg.content);
+                  setError(null);
+                }
+              }}
+              className="text-[10px] px-2 py-1 rounded bg-red-900/60 hover:bg-red-800 text-red-200 font-semibold"
+            >
+              Retry
+            </button>
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Quick Actions Bar */}
+      <div className="px-3 py-2 bg-[#12161a] border-t border-neutral-800 flex items-center gap-1.5 overflow-x-auto text-[10px] scrollbar-thin">
+        <span className="text-neutral-500 font-medium whitespace-nowrap flex items-center gap-1">
+          <Sparkles className="w-3 h-3 text-amber-400" /> Quick:
+        </span>
+        <button
+          onClick={() => {
+            setInputMessage('Explain this concept step by step.');
+          }}
+          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition"
+        >
+          Explain this
+        </button>
+        <button
+          onClick={() => {
+            setInputMessage('Summarize what I learned in this lesson.');
+          }}
+          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition"
+        >
+          Summarize this lesson
+        </button>
+        <button
+          onClick={() => {
+            setInputMessage('Give me an example with code or diagrams.');
+          }}
+          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition"
+        >
+          Give me an example
+        </button>
+        <button
+          onClick={() => {
+            setInputMessage('Quiz me on this topic.');
+          }}
+          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition"
+        >
+          Quiz me
+        </button>
+        <button
+          onClick={() => {
+            setInputMessage("I don't understand this topic, explain it simply.");
+          }}
+          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition"
+        >
+          Explain simply
+        </button>
+        <button
+          onClick={() => {
+            setInputMessage('Give me 5 practice questions about this topic.');
+          }}
+          className="whitespace-nowrap px-2.5 py-1 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition"
+        >
+          Practice questions
+        </button>
+      </div>
+
       {/* Input Footer */}
-      <form onSubmit={handleSend} className="p-3 bg-[#161a1d] border-t border-silver/15 flex items-center gap-2">
+      <form onSubmit={handleSend} className="p-3 bg-[#161a1d] border-t border-neutral-800 flex items-center gap-2">
         <input
           type="text"
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
-          placeholder={`Ask about ${courseTitle}...`}
+          placeholder={`Ask anything about your studies or ${courseTitle}...`}
           disabled={isLoading}
-          className="flex-1 bg-onyx border border-silver/20 focus:border-[var(--strawberry-red)] rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-silver/50 focus:outline-none transition-colors"
+          className="flex-1 bg-black/60 border border-neutral-700 focus:border-amber-500 rounded-lg px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none transition-colors"
         />
         <button
           type="submit"

@@ -39,4 +39,6 @@ export interface IAIProvider {
    * Returns metadata about provider capability and current model
    */
   getModelInfo(): { providerName: string; activeModel: string; maxContextTokens: number; isConfigured?: boolean };
+
+  isAvailable?(): boolean;
 }

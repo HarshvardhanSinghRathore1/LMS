@@ -23,7 +23,10 @@ async function runMigrations() {
     const executedMigrations = new Set(rows.map((r) => r.migration_name));
 
     // 3. Discover migration SQL files
-    const migrationsDir = path.join(__dirname, 'migrations');
+    let migrationsDir = path.join(__dirname, 'migrations');
+    if (!fs.existsSync(migrationsDir)) {
+      migrationsDir = path.join(__dirname, '../../src/database/migrations');
+    }
     if (!fs.existsSync(migrationsDir)) {
       console.log('ℹ️ No migrations directory found.');
       return;

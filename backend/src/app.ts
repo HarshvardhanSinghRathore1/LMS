@@ -24,6 +24,7 @@ import analyticsRoutes from './modules/analytics/analytics.routes';
 import notificationRoutes from './modules/notifications/notifications.routes';
 import auditRoutes from './modules/audit/audit.routes';
 import { ragRoutes } from './modules/rag/rag.routes';
+import { mediaRoutes } from './modules/media/media.routes';
 
 const app: Application = express();
 
@@ -85,6 +86,7 @@ app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/courses', courseRoutes);
+app.use('/api/v1/courses', mediaRoutes);
 app.use('/api/v1/enrollments', enrollmentRoutes);
 app.use('/api/v1/assessments', assessmentRoutes);
 app.use('/api/v1/competencies', competencyRoutes);

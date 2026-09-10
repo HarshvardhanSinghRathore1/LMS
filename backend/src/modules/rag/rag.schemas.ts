@@ -12,6 +12,7 @@ export type SearchQueryInput = z.infer<typeof searchQuerySchema>;
 export const chatMessageSchema = z.object({
   message: z.string().min(1, 'Message is required').max(2000, 'Message cannot exceed 2000 characters'),
   courseId: z.string().uuid('Invalid course ID').optional(),
+  lessonId: z.string().uuid('Invalid lesson ID').optional(),
   conversationId: z.string().uuid('Invalid conversation ID').optional(),
   topK: z.number().int().min(1).max(10).default(5).optional(),
 });

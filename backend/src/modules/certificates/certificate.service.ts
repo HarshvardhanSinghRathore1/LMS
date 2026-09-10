@@ -31,7 +31,7 @@ export class CertificateService {
       typeof issuedAt === 'string' ? new Date(issuedAt).toISOString() : issuedAt.toISOString();
 
     const payload = `${organizationId}|${enrollmentId}|${traineeId}|${courseId}|${certificateCode}|${isoIssuedAt}`;
-    return crypto.createHash('sha256').update(payload).digest('hex');
+    return crypto.createHash('hsr256').update(payload).digest('hex');
   }
 
   /**

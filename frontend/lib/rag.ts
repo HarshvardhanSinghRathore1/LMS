@@ -123,6 +123,7 @@ export const ragApi = {
   async chat(params: {
     message: string;
     courseId?: string;
+    lessonId?: string;
     conversationId?: string;
     topK?: number;
   }): Promise<RAGChatResponse> {

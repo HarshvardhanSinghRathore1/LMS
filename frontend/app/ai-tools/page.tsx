@@ -3,13 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
-import { fetchCoursesApi, Course } from '../../lib/courses';
+import { fetchCoursesApi, fetchCourseByIdApi, Course, CourseModule, CourseLesson } from '../../lib/courses';
 import { fetchAssessmentsApi, Assessment } from '../../lib/assessments';
 import {
   generateAINotes,
   generateAIMcqs,
   fetchGeneratedItems,
   reviewGeneratedItem,
+  regenerateSingleMcqApi,
+  updateGeneratedItemApi,
+  deleteGeneratedItemApi,
   AIGeneratedItem,
   AIItemStatus,
 } from '../../lib/ai';
@@ -28,18 +31,30 @@ import {
   ShieldCheck,
   Check,
   AlertTriangle,
+  Trash2,
+  Layers,
+  BookOpen,
+  Video,
+  FileCode,
+  Sliders,
+  ChevronRight,
+  Info,
 } from 'lucide-react';
 
 export default function AIToolsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const isTrainerOrAdmin = user?.role === 'ADMIN' || user?.role === 'TRAINER';
 
-  const [activeTab, setActiveTab] = useState<'notes' | 'mcq' | 'review'>('review');
+  const [activeTab, setActiveTab] = useState<'review' | 'mcq' | 'notes'>('mcq');
 
   // Courses & Assessments for dropdowns
   const [courses, setCourses] = useState<Course[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
+
+  // Selected Course details for drilling down modules/lessons
+  const [selectedCourseDetails, setSelectedCourseDetails] = useState<Course | null>(null);
+  const [courseLoading, setCourseLoading] = useState(false);
 
   // Notes Form State
   const [selectedCourseNotes, setSelectedCourseNotes] = useState('');
@@ -49,8 +64,11 @@ export default function AIToolsPage() {
 
   // MCQ Form State
   const [selectedCourseMcq, setSelectedCourseMcq] = useState('');
-  const [mcqCount, setMcqCount] = useState(3);
-  const [mcqDifficulty, setMcqDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('MEDIUM');
+  const [selectedModuleMcq, setSelectedModuleMcq] = useState('');
+  const [selectedLessonMcq, setSelectedLessonMcq] = useState('');
+  const [mcqTopic, setMcqTopic] = useState('');
+  const [mcqCount, setMcqCount] = useState(5);
+  const [mcqDifficulty, setMcqDifficulty] = useState<'BALANCED' | 'EASY' | 'MEDIUM' | 'HARD'>('BALANCED');
   const [mcqGenerating, setMcqGenerating] = useState(false);
   const [generatedMcqResults, setGeneratedMcqResults] = useState<AIGeneratedItem[]>([]);
 
@@ -61,8 +79,25 @@ export default function AIToolsPage() {
   const [selectedTargetAssessment, setSelectedTargetAssessment] = useState<Record<string, string>>({});
   const [reviewNotesInput, setReviewNotesInput] = useState<Record<string, string>>({});
 
+  // Regeneration & Editing states
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<AIGeneratedItem | null>(null);
+  const [editForm, setEditForm] = useState<{
+    questionText: string;
+    options: string[];
+    correctAnswerIndex: number;
+    explanation: string;
+    difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  }>({
+    questionText: '',
+    options: ['', '', '', ''],
+    correctAnswerIndex: 0,
+    explanation: '',
+    difficulty: 'MEDIUM',
+  });
+
   // Alert message state
-  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'danger'; message: string } | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'danger' | 'info'; message: string } | null>(null);
 
   useEffect(() => {
     async function initData() {
@@ -86,6 +121,50 @@ export default function AIToolsPage() {
       initData();
     }
   }, [isAuthenticated]);
+
+  // Load course details when MCQ course selection changes
+  useEffect(() => {
+    if (!selectedCourseMcq) {
+      setSelectedCourseDetails(null);
+      return;
+    }
+
+    async function loadCourseDetail() {
+      setCourseLoading(true);
+      try {
+        const details = await fetchCourseByIdApi(selectedCourseMcq);
+        setSelectedCourseDetails(details);
+        setSelectedModuleMcq('');
+        setSelectedLessonMcq('');
+        setMcqTopic(details.title);
+      } catch (err) {
+        console.error('Failed to load course details:', err);
+      } finally {
+        setCourseLoading(false);
+      }
+    }
+
+    loadCourseDetail();
+  }, [selectedCourseMcq]);
+
+  // When lesson changes, update topic placeholder
+  const handleLessonChange = (lessonId: string) => {
+    setSelectedLessonMcq(lessonId);
+    if (!lessonId) {
+      setMcqTopic(selectedCourseDetails?.title || '');
+      return;
+    }
+
+    // Find lesson in modules
+    const modules = selectedCourseDetails?.modules || [];
+    for (const mod of modules) {
+      const foundLesson = mod.lessons?.find((l) => l.id === lessonId);
+      if (foundLesson) {
+        setMcqTopic(foundLesson.title);
+        break;
+      }
+    }
+  };
 
   const loadReviewQueue = async () => {
     setReviewLoading(true);
@@ -137,19 +216,134 @@ export default function AIToolsPage() {
     try {
       const items = await generateAIMcqs({
         courseId: selectedCourseMcq,
+        moduleId: selectedModuleMcq || undefined,
+        lessonId: selectedLessonMcq || undefined,
+        topic: mcqTopic.trim() || undefined,
         count: mcqCount,
         difficulty: mcqDifficulty,
       });
       setGeneratedMcqResults(items);
-      setStatusMsg({ type: 'success', message: `Successfully generated ${items.length} MCQ item(s) in PENDING_REVIEW queue!` });
+      setStatusMsg({
+        type: 'success',
+        message: `Generated ${items.length} topic-grounded question(s). All items enqueued for Trainer Review.`,
+      });
       loadReviewQueue();
     } catch (err: any) {
-      setStatusMsg({ type: 'danger', message: err.response?.data?.error?.message || 'Failed to generate MCQs.' });
+      setStatusMsg({
+        type: 'danger',
+        message: err.response?.data?.error?.message || 'Failed to generate MCQs from lesson context.',
+      });
     } finally {
       setMcqGenerating(false);
     }
   };
 
+  // 1-Click Regenerate Individual Question
+  const handleRegenerateItem = async (itemId: string) => {
+    setRegeneratingId(itemId);
+    setStatusMsg(null);
+
+    try {
+      const updated = await regenerateSingleMcqApi(itemId);
+      setReviewItems((prev) => prev.map((item) => (item.id === itemId ? updated : item)));
+      setStatusMsg({
+        type: 'success',
+        message: 'Question regenerated successfully with fresh grounded content!',
+      });
+    } catch (err: any) {
+      setStatusMsg({
+        type: 'danger',
+        message: err.response?.data?.error?.message || 'Failed to regenerate question.',
+      });
+    } finally {
+      setRegeneratingId(null);
+    }
+  };
+
+  // Open Edit Modal
+  const handleOpenEdit = (item: AIGeneratedItem) => {
+    setEditingItem(item);
+    const content = item.content;
+    const opts = Array.isArray(content.options) ? [...content.options] : ['', '', '', ''];
+    while (opts.length < 4) opts.push('');
+    const corrIdx = opts.findIndex((o) => o === content.correctAnswer);
+
+    setEditForm({
+      questionText: content.questionText || item.title,
+      options: opts.slice(0, 4),
+      correctAnswerIndex: corrIdx >= 0 ? corrIdx : 0,
+      explanation: content.explanation || '',
+      difficulty: content.difficulty || 'MEDIUM',
+    });
+  };
+
+  // Save Edit
+  const handleSaveEdit = async () => {
+    if (!editingItem) return;
+
+    if (!editForm.questionText.trim()) {
+      setStatusMsg({ type: 'danger', message: 'Question text cannot be empty.' });
+      return;
+    }
+
+    if (editForm.options.some((o) => !o.trim())) {
+      setStatusMsg({ type: 'danger', message: 'All 4 options must be non-empty.' });
+      return;
+    }
+
+    const uniqueOptions = new Set(editForm.options.map((o) => o.trim().toLowerCase()));
+    if (uniqueOptions.size !== 4) {
+      setStatusMsg({ type: 'danger', message: 'All 4 options must be unique.' });
+      return;
+    }
+
+    const correctAnswer = editForm.options[editForm.correctAnswerIndex].trim();
+
+    const updatedContent = {
+      ...editingItem.content,
+      questionText: editForm.questionText.trim(),
+      options: editForm.options.map((o) => o.trim()),
+      correctAnswer,
+      explanation: editForm.explanation.trim(),
+      difficulty: editForm.difficulty,
+    };
+
+    try {
+      const updated = await updateGeneratedItemApi(editingItem.id, {
+        title: `MCQ (${editForm.difficulty}): ${editForm.questionText.slice(0, 60)}...`,
+        content: updatedContent,
+      });
+
+      setReviewItems((prev) => prev.map((i) => (i.id === editingItem.id ? updated : i)));
+      setEditingItem(null);
+      setStatusMsg({ type: 'success', message: 'Question updated successfully.' });
+    } catch (err: any) {
+      setStatusMsg({
+        type: 'danger',
+        message: err.response?.data?.error?.message || 'Failed to update question.',
+      });
+    }
+  };
+
+  // Delete Item from Queue
+  const handleDeleteItem = async (itemId: string) => {
+    if (!confirm('Are you sure you want to remove this generated question from the review queue?')) {
+      return;
+    }
+
+    try {
+      await deleteGeneratedItemApi(itemId);
+      setReviewItems((prev) => prev.filter((i) => i.id !== itemId));
+      setStatusMsg({ type: 'success', message: 'Question removed from review queue.' });
+    } catch (err: any) {
+      setStatusMsg({
+        type: 'danger',
+        message: err.response?.data?.error?.message || 'Failed to delete question.',
+      });
+    }
+  };
+
+  // Approve & Import
   const handleReviewAction = async (itemId: string, action: 'APPROVE' | 'REJECT') => {
     setStatusMsg(null);
     const targetAssessmentId = selectedTargetAssessment[itemId];
@@ -183,6 +377,16 @@ export default function AIToolsPage() {
     }
   };
 
+  // Find currently selected lesson details for grounding preview
+  const selectedLessonObj = (() => {
+    if (!selectedCourseDetails || !selectedLessonMcq) return null;
+    for (const mod of selectedCourseDetails.modules || []) {
+      const l = mod.lessons?.find((les) => les.id === selectedLessonMcq);
+      if (l) return l;
+    }
+    return null;
+  })();
+
   if (authLoading || loadingInitial) {
     return (
       <div className="min-h-screen bg-onyx flex items-center justify-center text-silver font-mono text-xs">
@@ -198,7 +402,7 @@ export default function AIToolsPage() {
           <div className="p-6 bg-dark-garnet/30 border border-strawberry-red/50 rounded-lg text-center space-y-3">
             <AlertTriangle className="w-8 h-8 text-strawberry-red mx-auto" />
             <p className="text-xs text-silver">
-              AI Content Generation and Trainer Review workflows are restricted to authorized **ADMIN** and **TRAINER** users.
+              AI Content Generation and Trainer Review workflows are restricted to authorized <strong>ADMIN</strong> and <strong>TRAINER</strong> users.
             </p>
             <Link
               href="/"
@@ -227,12 +431,26 @@ export default function AIToolsPage() {
           </div>
           <h1 className="text-xl font-extrabold text-white mt-1 flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-strawberry-red" />
-            Stage 6 — AI-Assisted Content Generator & Review Hub
+            AI Content Studio & Assessment Engine
           </h1>
+          <p className="text-xs text-silver mt-1">
+            Generate topic-grounded MCQs and study notes powered by Gemini multimodal RAG.
+          </p>
         </div>
 
         {/* Tab Navigation */}
         <div className="flex items-center gap-1.5 bg-carbon-black p-1 rounded-lg border border-silver/20">
+          <button
+            onClick={() => setActiveTab('mcq')}
+            className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              activeTab === 'mcq'
+                ? 'bg-[var(--mahogany-red)] text-white shadow-md'
+                : 'text-silver hover:text-white hover:bg-onyx'
+            }`}
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            MCQ Generator
+          </button>
           <button
             onClick={() => setActiveTab('review')}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
@@ -243,6 +461,11 @@ export default function AIToolsPage() {
           >
             <ShieldCheck className="w-3.5 h-3.5" />
             Review Queue
+            {reviewItems.filter((i) => i.status === 'PENDING_REVIEW').length > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 bg-strawberry-red text-white text-[10px] rounded-full font-bold">
+                {reviewItems.filter((i) => i.status === 'PENDING_REVIEW').length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('notes')}
@@ -255,17 +478,6 @@ export default function AIToolsPage() {
             <FileText className="w-3.5 h-3.5" />
             Notes Generator
           </button>
-          <button
-            onClick={() => setActiveTab('mcq')}
-            className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeTab === 'mcq'
-                ? 'bg-[var(--mahogany-red)] text-white shadow-md'
-                : 'text-silver hover:text-white hover:bg-onyx'
-            }`}
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-            MCQ Generator
-          </button>
         </div>
       </div>
 
@@ -275,11 +487,19 @@ export default function AIToolsPage() {
           className={`p-4 rounded-lg border text-xs font-medium flex items-center justify-between ${
             statusMsg.type === 'success'
               ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300'
+              : statusMsg.type === 'info'
+              ? 'bg-blue-950/40 border-blue-800 text-blue-300'
               : 'bg-red-950/40 border-red-800 text-red-300'
           }`}
         >
           <span className="flex items-center gap-2">
-            {statusMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+            {statusMsg.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4" />
+            ) : statusMsg.type === 'info' ? (
+              <Info className="w-4 h-4" />
+            ) : (
+              <AlertTriangle className="w-4 h-4" />
+            )}
             {statusMsg.message}
           </span>
           <button onClick={() => setStatusMsg(null)} className="text-silver hover:text-white font-bold text-xs">
@@ -288,11 +508,291 @@ export default function AIToolsPage() {
         </div>
       )}
 
-      {/* TAB 1: REVIEW & APPROVAL QUEUE */}
+      {/* TAB 1: MCQ GENERATOR (Topic Grounded) */}
+      {activeTab === 'mcq' && (
+        <div className="space-y-6">
+          <Card
+            title="Topic-Grounded MCQ Generator"
+            subtitle="Generates rigorous, educational MCQs extracted strictly from lesson content, YouTube transcripts, notes & attached PDFs"
+          >
+            <form onSubmit={handleGenerateMcqs} className="space-y-5">
+              {/* Hierarchical Selection: Course -> Module -> Lesson */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-silver uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-strawberry-red" />
+                    Target Course *
+                  </label>
+                  <select
+                    value={selectedCourseMcq}
+                    onChange={(e) => setSelectedCourseMcq(e.target.value)}
+                    className="w-full bg-onyx border border-silver/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-strawberry-red"
+                    required
+                  >
+                    {courses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title} ({c.difficulty_level})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-silver uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-silver/60" />
+                    Module (Optional)
+                  </label>
+                  <select
+                    value={selectedModuleMcq}
+                    onChange={(e) => {
+                      setSelectedModuleMcq(e.target.value);
+                      setSelectedLessonMcq('');
+                    }}
+                    disabled={courseLoading || !selectedCourseDetails?.modules?.length}
+                    className="w-full bg-onyx border border-silver/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-strawberry-red disabled:opacity-50"
+                  >
+                    <option value="">-- All Modules in Course --</option>
+                    {selectedCourseDetails?.modules?.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-silver uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <FileCode className="w-3.5 h-3.5 text-strawberry-red" />
+                    Specific Lesson (Recommended)
+                  </label>
+                  <select
+                    value={selectedLessonMcq}
+                    onChange={(e) => handleLessonChange(e.target.value)}
+                    disabled={courseLoading}
+                    className="w-full bg-onyx border border-silver/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-strawberry-red disabled:opacity-50"
+                  >
+                    <option value="">-- Ground across Course/Module --</option>
+                    {selectedCourseDetails?.modules?.map((m) =>
+                      m.lessons?.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {m.title} ➔ {l.title}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* Topic & Focus */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-silver uppercase tracking-wider mb-1.5">
+                    Topic Focus (Auto-grounded)
+                  </label>
+                  <input
+                    type="text"
+                    value={mcqTopic}
+                    onChange={(e) => setMcqTopic(e.target.value)}
+                    placeholder="e.g., Binary Search Algorithm, Time Complexity, Edge Cases"
+                    className="w-full bg-onyx border border-silver/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-strawberry-red font-medium"
+                  />
+                  <span className="text-[10px] text-silver/60 mt-1 block">
+                    Questions are strictly grounded in this topic and verified against course material.
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-silver uppercase tracking-wider mb-1.5">
+                      Question Count
+                    </label>
+                    <select
+                      value={mcqCount}
+                      onChange={(e) => setMcqCount(parseInt(e.target.value, 10))}
+                      className="w-full bg-onyx border border-silver/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-strawberry-red font-mono"
+                    >
+                      <option value={3}>3 Questions</option>
+                      <option value={5}>5 Questions (Recommended)</option>
+                      <option value={10}>10 Questions</option>
+                      <option value={15}>15 Questions</option>
+                      <option value={20}>20 Questions (Max)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-silver uppercase tracking-wider mb-1.5">
+                      Difficulty Level
+                    </label>
+                    <select
+                      value={mcqDifficulty}
+                      onChange={(e) => setMcqDifficulty(e.target.value as any)}
+                      className="w-full bg-onyx border border-silver/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-strawberry-red font-mono"
+                    >
+                      <option value="BALANCED">Balanced Distribution</option>
+                      <option value="EASY">Easy (Recall & Concepts)</option>
+                      <option value="MEDIUM">Medium (Application)</option>
+                      <option value="HARD">Hard (Scenarios & Edge cases)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Source Verification Checklist Preview */}
+              <div className="p-4 bg-carbon-black rounded-lg border border-silver/15 space-y-2">
+                <div className="text-[11px] font-bold text-silver uppercase tracking-wider flex items-center justify-between">
+                  <span>Source Grounding Verification</span>
+                  <span className="text-emerald-400 text-[10px] font-mono flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3" /> Strict Topic-Grounded RAG Pipeline
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                  <div className="flex items-center gap-1.5 text-xs text-silver">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Lesson Content</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-silver">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>YouTube Transcript</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-silver">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Lesson Notes</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-silver">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>PDF Resources</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2 text-[11px] text-silver/60">
+                  <span>Quality Guarantee:</span>
+                  <Badge variant="neutral" size="sm">✓ 4 Unique Options</Badge>
+                  <Badge variant="neutral" size="sm">✓ No Gibberish</Badge>
+                  <Badge variant="neutral" size="sm">✓ Verified Distractors</Badge>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={mcqGenerating || !selectedCourseMcq}
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#660708] via-[#a4161a] to-[#e5383b] hover:brightness-110 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>{mcqGenerating ? 'Grounding & Generating...' : 'Generate Grounded MCQs'}</span>
+                </button>
+              </div>
+            </form>
+          </Card>
+
+          {/* Recently Generated MCQs in this session */}
+          {generatedMcqResults.length > 0 && (
+            <Card
+              title={`Generated ${generatedMcqResults.length} Questions`}
+              subtitle="Topic-grounded questions ready for your review and one-click assessment import"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 text-xs font-mono text-silver bg-carbon-black p-3 rounded-lg border border-silver/10">
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {generatedMcqResults.length} Validated
+                  </span>
+                  <span>•</span>
+                  <span className="text-blue-400 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" /> 0 Duplicates
+                  </span>
+                  <span>•</span>
+                  <span className="text-strawberry-red flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5" /> Topic Grounded
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {generatedMcqResults.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className="p-4 bg-onyx rounded-lg border border-silver/20 space-y-3 font-mono text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white">Q{idx + 1}.</span>
+                          <Badge
+                            variant={
+                              item.content.difficulty === 'EASY'
+                                ? 'success'
+                                : item.content.difficulty === 'HARD'
+                                ? 'danger'
+                                : 'warning'
+                            }
+                            size="sm"
+                          >
+                            {item.content.difficulty || 'MEDIUM'}
+                          </Badge>
+                          {item.content.questionCategory && (
+                            <Badge variant="neutral" size="sm">
+                              {item.content.questionCategory}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-silver/60">
+                          Ref: {item.content.sourceReference || 'Lesson Material'}
+                        </span>
+                      </div>
+
+                      <p className="font-sans font-semibold text-white text-sm">
+                        {item.content.questionText}
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {Array.isArray(item.content.options) &&
+                          item.content.options.map((opt: string, optIdx: number) => {
+                            const isCorrect = opt === item.content.correctAnswer;
+                            return (
+                              <div
+                                key={optIdx}
+                                className={`p-2.5 rounded border ${
+                                  isCorrect
+                                    ? 'bg-emerald-950/40 border-emerald-700 text-emerald-300 font-bold'
+                                    : 'bg-carbon-black border-silver/10 text-silver'
+                                }`}
+                              >
+                                <span className="font-bold mr-1.5">{String.fromCharCode(65 + optIdx)}.</span>
+                                {opt}
+                                {isCorrect && <span className="ml-2 text-emerald-400">✓ (Correct)</span>}
+                              </div>
+                            );
+                          })}
+                      </div>
+
+                      {item.content.explanation && (
+                        <div className="text-[11px] font-sans text-silver/80 italic bg-carbon-black/60 p-2.5 rounded border border-silver/10">
+                          <strong>Explanation:</strong> {item.content.explanation}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-2 text-center">
+                  <button
+                    onClick={() => setActiveTab('review')}
+                    className="px-5 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-semibold rounded-lg border border-neutral-600 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <span>Proceed to Review Queue & Import</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: REVIEW & APPROVAL QUEUE */}
       {activeTab === 'review' && (
         <Card
-          title="Trainer Review & Approval Queue"
-          subtitle="AI-generated items must be human-reviewed before importing into live assessment questions"
+          title="Trainer Review & Assessment Import Queue"
+          subtitle="Review, edit, regenerate, or approve AI generated questions before publishing to trainee assessments"
         >
           <div className="space-y-4">
             {/* Filter Bar */}
@@ -337,11 +837,11 @@ export default function AIToolsPage() {
                 {reviewItems.map((item) => (
                   <div
                     key={item.id}
-                    className="p-5 bg-onyx rounded-lg border border-silver/20 space-y-3 transition-all hover:border-silver/40"
+                    className="p-5 bg-onyx rounded-lg border border-silver/20 space-y-4 transition-all hover:border-silver/40"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-silver/10 pb-3">
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-mono font-bold text-white">{item.title}</span>
                           <Badge
                             variant={
@@ -356,45 +856,69 @@ export default function AIToolsPage() {
                             {item.status}
                           </Badge>
                           <Badge variant="neutral" size="sm">{item.item_type}</Badge>
+                          {item.content?.difficulty && (
+                            <Badge
+                              variant={
+                                item.content.difficulty === 'EASY'
+                                  ? 'success'
+                                  : item.content.difficulty === 'HARD'
+                                  ? 'danger'
+                                  : 'warning'
+                              }
+                              size="sm"
+                            >
+                              {item.content.difficulty}
+                            </Badge>
+                          )}
+                          {item.content?.questionCategory && (
+                            <Badge variant="neutral" size="sm">
+                              {item.content.questionCategory}
+                            </Badge>
+                          )}
                         </div>
-                        <p className="text-[11px] text-silver font-mono mt-0.5">
-                          Course: {item.course_title} • Provider: {item.provider} ({item.model})
+                        <p className="text-[11px] text-silver font-mono mt-1">
+                          Course: {item.course_title || 'N/A'} • Provider: {item.provider} ({item.model})
+                          {item.content?.sourceReference && ` • Source: ${item.content.sourceReference}`}
                         </p>
                       </div>
                       <div className="text-[10px] font-mono text-silver/60">
-                        Generated: {new Date(item.created_at).toLocaleString()}
+                        {new Date(item.created_at).toLocaleString()}
                       </div>
                     </div>
 
                     {/* Content Preview */}
                     <div className="p-4 bg-carbon-black rounded border border-silver/10 space-y-2 text-xs">
                       {item.item_type === 'MCQ' ? (
-                        <div className="space-y-2">
-                          <div className="font-semibold text-white">Q: {item.content.questionText}</div>
+                        <div className="space-y-3">
+                          <div className="font-semibold text-white text-sm">
+                            {item.content.questionText}
+                          </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono">
                             {Array.isArray(item.content.options) &&
                               item.content.options.map((opt: any, idx: number) => {
                                 const text = typeof opt === 'string' ? opt : opt.optionText;
-                                const isCorr = typeof opt === 'string'
-                                  ? opt === item.content.correctAnswer
-                                  : opt.isCorrect;
+                                const isCorr =
+                                  typeof opt === 'string'
+                                    ? opt === item.content.correctAnswer
+                                    : opt.isCorrect;
                                 return (
                                   <div
                                     key={idx}
-                                    className={`p-2 rounded border text-[11px] ${
+                                    className={`p-2.5 rounded border text-xs ${
                                       isCorr
                                         ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300 font-bold'
                                         : 'bg-onyx border-silver/10 text-silver'
                                     }`}
                                   >
-                                    {String.fromCharCode(65 + idx)}. {text} {isCorr ? '✓ (Correct)' : ''}
+                                    <span className="font-bold mr-1.5">{String.fromCharCode(65 + idx)}.</span>
+                                    {text} {isCorr ? '✓ (Correct)' : ''}
                                   </div>
                                 );
                               })}
                           </div>
                           {item.content.explanation && (
                             <div className="text-[11px] text-silver/80 italic pt-1">
-                              Explanation: {item.content.explanation}
+                              <strong>Explanation:</strong> {item.content.explanation}
                             </div>
                           )}
                         </div>
@@ -410,68 +934,97 @@ export default function AIToolsPage() {
 
                     {/* Review Actions if PENDING_REVIEW */}
                     {item.status === 'PENDING_REVIEW' && (
-                      <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
-                        {item.item_type === 'MCQ' && (
-                          <div className="flex-1 w-full">
-                            <select
-                              value={selectedTargetAssessment[item.id] || ''}
-                              onChange={(e) =>
-                                setSelectedTargetAssessment((prev) => ({ ...prev, [item.id]: e.target.value }))
-                              }
-                              className="w-full bg-onyx dark:bg-[#0b090a] light:bg-white border border-silver/20 dark:border-silver/15 light:border-gray-300 rounded-lg px-3 py-1.5 text-xs text-white dark:text-white light:text-gray-900 focus:outline-none focus:border-strawberry-red"
+                      <div className="pt-2 flex flex-col gap-3">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                          {/* MCQ Target Assessment Selector */}
+                          {item.item_type === 'MCQ' && (
+                            <div className="flex-1 w-full">
+                              <select
+                                value={selectedTargetAssessment[item.id] || ''}
+                                onChange={(e) =>
+                                  setSelectedTargetAssessment((prev) => ({ ...prev, [item.id]: e.target.value }))
+                                }
+                                className="w-full bg-onyx border border-silver/20 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-strawberry-red font-mono"
+                              >
+                                <option value="">-- Select Target Assessment to Import --</option>
+                                {(() => {
+                                  const courseAssessments = assessments.filter((a) => a.course_id === item.course_id);
+                                  const otherAssessments = assessments.filter((a) => a.course_id !== item.course_id);
+
+                                  return (
+                                    <>
+                                      {courseAssessments.length > 0 && (
+                                        <optgroup label="This Course's Assessments">
+                                          {courseAssessments.map((a) => (
+                                            <option key={a.id} value={a.id}>
+                                              {a.title} ({a.status})
+                                            </option>
+                                          ))}
+                                        </optgroup>
+                                      )}
+                                      {otherAssessments.length > 0 && (
+                                        <optgroup label={courseAssessments.length > 0 ? "Other Assessments in Org" : "Available Assessments"}>
+                                          {otherAssessments.map((a) => (
+                                            <option key={a.id} value={a.id}>
+                                              {a.title} ({a.status})
+                                            </option>
+                                          ))}
+                                        </optgroup>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </select>
+                            </div>
+                          )}
+
+                          {/* Action Buttons: Edit, Regenerate, Delete, Approve, Reject */}
+                          <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap justify-end">
+                            {item.item_type === 'MCQ' && (
+                              <>
+                                <button
+                                  onClick={() => handleOpenEdit(item)}
+                                  className="px-3 py-1.5 bg-carbon-black hover:bg-neutral-800 border border-silver/20 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                  <Edit className="w-3.5 h-3.5 text-silver" />
+                                  <span>Edit</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleRegenerateItem(item.id)}
+                                  disabled={regeneratingId === item.id}
+                                  className="px-3 py-1.5 bg-carbon-black hover:bg-neutral-800 border border-strawberry-red/40 text-strawberry-red hover:text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50"
+                                >
+                                  <Sparkles className={`w-3.5 h-3.5 ${regeneratingId === item.id ? 'animate-spin' : ''}`} />
+                                  <span>{regeneratingId === item.id ? 'Regenerating...' : '✨ Regenerate'}</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleDeleteItem(item.id)}
+                                  className="px-2.5 py-1.5 bg-carbon-black hover:bg-red-950 border border-red-900/40 text-red-400 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                                  title="Delete question"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+
+                            <button
+                              onClick={() => handleReviewAction(item.id, 'APPROVE')}
+                              className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow"
                             >
-                              <option value="">-- Select Target Assessment --</option>
-                              {(() => {
-                                const courseAssessments = assessments.filter((a) => a.course_id === item.course_id);
-                                const otherAssessments = assessments.filter((a) => a.course_id !== item.course_id);
+                              <Check className="w-3.5 h-3.5" />
+                              Approve & Import
+                            </button>
 
-                                return (
-                                  <>
-                                    {courseAssessments.length > 0 && (
-                                      <optgroup label="This Course's Assessments">
-                                        {courseAssessments.map((a) => (
-                                          <option key={a.id} value={a.id}>
-                                            {a.title} ({a.status})
-                                          </option>
-                                        ))}
-                                      </optgroup>
-                                    )}
-                                    {otherAssessments.length > 0 && (
-                                      <optgroup label={courseAssessments.length > 0 ? "Other Assessments in Organization" : "Available Assessments"}>
-                                        {otherAssessments.map((a) => (
-                                          <option key={a.id} value={a.id}>
-                                            {a.title} ({a.status})
-                                          </option>
-                                        ))}
-                                      </optgroup>
-                                    )}
-                                    {assessments.length === 0 && (
-                                      <option value="" disabled>
-                                        No assessments available. Please create one in Assessments first.
-                                      </option>
-                                    )}
-                                  </>
-                                );
-                              })()}
-                            </select>
+                            <button
+                              onClick={() => handleReviewAction(item.id, 'REJECT')}
+                              className="px-3 py-1.5 bg-red-950 hover:bg-red-900 border border-red-800 text-red-200 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Reject
+                            </button>
                           </div>
-                        )}
-
-                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                          <button
-                            onClick={() => handleReviewAction(item.id, 'APPROVE')}
-                            className="flex-1 sm:flex-none px-4 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            Approve & Import
-                          </button>
-                          <button
-                            onClick={() => handleReviewAction(item.id, 'REJECT')}
-                            className="flex-1 sm:flex-none px-4 py-1.5 bg-red-950 hover:bg-red-900 border border-red-800 text-red-200 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1"
-                          >
-                            <XCircle className="w-3.5 h-3.5" />
-                            Reject
-                          </button>
                         </div>
                       </div>
                     )}
@@ -483,7 +1036,7 @@ export default function AIToolsPage() {
         </Card>
       )}
 
-      {/* TAB 2: STUDY NOTES GENERATOR */}
+      {/* TAB 3: STUDY NOTES GENERATOR */}
       {activeTab === 'notes' && (
         <Card
           title="AI-Assisted Study Notes & Summary Generator"
@@ -550,101 +1103,110 @@ export default function AIToolsPage() {
         </Card>
       )}
 
-      {/* TAB 3: MCQ GENERATOR */}
-      {activeTab === 'mcq' && (
-        <Card
-          title="AI-Assisted MCQ & Question Item Generator"
-          subtitle="Generate structured multiple choice questions with options and explanations for trainer review"
-        >
-          <form onSubmit={handleGenerateMcqs} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-silver uppercase tracking-wider mb-1">
-                  Target Course
-                </label>
-                <select
-                  value={selectedCourseMcq}
-                  onChange={(e) => setSelectedCourseMcq(e.target.value)}
-                  className="w-full bg-onyx border border-silver/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                >
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
+      {/* EDIT MODAL */}
+      {editingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="bg-onyx border border-silver/20 rounded-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-silver/15 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Edit className="w-4 h-4 text-strawberry-red" />
+                Edit AI-Generated Question
+              </h3>
+              <button
+                onClick={() => setEditingItem(null)}
+                className="text-silver hover:text-white text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
 
+            <div className="space-y-4 text-xs">
+              {/* Question Text */}
               <div>
-                <label className="block text-xs font-bold text-silver uppercase tracking-wider mb-1">
-                  Question Count (1-10)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={mcqCount}
-                  onChange={(e) => setMcqCount(parseInt(e.target.value, 10) || 1)}
-                  className="w-full bg-onyx border border-silver/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                <label className="block font-bold text-silver uppercase mb-1">Question Text</label>
+                <textarea
+                  rows={2}
+                  value={editForm.questionText}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, questionText: e.target.value }))}
+                  className="w-full bg-carbon-black border border-silver/20 rounded-lg p-2.5 text-white focus:outline-none focus:border-strawberry-red font-medium"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-silver uppercase tracking-wider mb-1">
-                  Difficulty Level
+              {/* 4 Options & Correct Answer Radio */}
+              <div className="space-y-2">
+                <label className="block font-bold text-silver uppercase mb-1">
+                  Options & Correct Answer (Select the radio button for the correct choice)
                 </label>
+                {editForm.options.map((opt, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="correctChoice"
+                      checked={editForm.correctAnswerIndex === i}
+                      onChange={() => setEditForm((prev) => ({ ...prev, correctAnswerIndex: i }))}
+                      className="w-4 h-4 accent-strawberry-red cursor-pointer"
+                    />
+                    <span className="font-bold text-silver font-mono w-4">{String.fromCharCode(65 + i)}.</span>
+                    <input
+                      type="text"
+                      value={opt}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditForm((prev) => {
+                          const newOpts = [...prev.options];
+                          newOpts[i] = val;
+                          return { ...prev, options: newOpts };
+                        });
+                      }}
+                      placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                      className="flex-1 bg-carbon-black border border-silver/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-strawberry-red font-mono text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Difficulty */}
+              <div>
+                <label className="block font-bold text-silver uppercase mb-1">Difficulty</label>
                 <select
-                  value={mcqDifficulty}
-                  onChange={(e) => setMcqDifficulty(e.target.value as any)}
-                  className="w-full bg-onyx border border-silver/20 rounded-lg px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                  value={editForm.difficulty}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, difficulty: e.target.value as any }))}
+                  className="w-full bg-carbon-black border border-silver/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-strawberry-red font-mono"
                 >
                   <option value="EASY">EASY</option>
                   <option value="MEDIUM">MEDIUM</option>
                   <option value="HARD">HARD</option>
                 </select>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={mcqGenerating || !selectedCourseMcq}
-              className="px-5 py-2.5 bg-gradient-to-r from-[#660708] via-[#a4161a] to-[#e5383b] hover:brightness-110 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center gap-2"
-            >
-              <HelpCircle className="w-4 h-4" />
-              <span>{mcqGenerating ? 'Generating MCQs...' : 'Generate MCQs'}</span>
-            </button>
-          </form>
-
-          {generatedMcqResults.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-silver/15 space-y-4">
-              <h4 className="text-xs font-bold text-silver uppercase tracking-wider flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                Generated MCQs ({generatedMcqResults.length} Items Enqueued for Review)
-              </h4>
-              <div className="space-y-3">
-                {generatedMcqResults.map((item, idx) => (
-                  <div key={item.id} className="p-4 bg-onyx rounded-lg border border-silver/20 space-y-2 text-xs font-mono">
-                    <div className="font-bold text-white">Item #{idx + 1}: {item.content.questionText}</div>
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      {item.content.options.map((opt: string, i: number) => (
-                        <div
-                          key={i}
-                          className={`p-2 rounded border ${
-                            opt === item.content.correctAnswer
-                              ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300 font-bold'
-                              : 'bg-carbon-black border-silver/10 text-silver'
-                          }`}
-                        >
-                          {opt} {opt === item.content.correctAnswer ? '✓' : ''}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              {/* Explanation */}
+              <div>
+                <label className="block font-bold text-silver uppercase mb-1">Explanation</label>
+                <textarea
+                  rows={2}
+                  value={editForm.explanation}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, explanation: e.target.value }))}
+                  className="w-full bg-carbon-black border border-silver/20 rounded-lg p-2.5 text-white focus:outline-none focus:border-strawberry-red font-mono"
+                />
               </div>
             </div>
-          )}
-        </Card>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-silver/15">
+              <button
+                onClick={() => setEditingItem(null)}
+                className="px-4 py-2 bg-carbon-black hover:bg-neutral-800 text-silver hover:text-white rounded-lg text-xs font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-5 py-2 bg-gradient-to-r from-[#660708] to-[#e5383b] text-white rounded-lg text-xs font-bold transition-all shadow"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

@@ -27,11 +27,21 @@ export interface AIGeneratedItem {
 }
 
 export interface Citation {
-  documentId: string;
+  documentId?: string;
   chunkId: string;
   title: string;
   courseId?: string;
+  moduleId?: string;
+  lessonId?: string;
+  resourceId?: string;
+  sourceType?: 'course_material' | 'video_transcript' | 'course_pdf';
+  sourceBadge?: string;
+  startTime?: number;
+  endTime?: number;
+  page?: number;
   similarityScore?: number;
+  similarity?: number;
+  contentSnippet?: string;
 }
 
 export interface TutorConversation {
@@ -64,8 +74,10 @@ export interface GenerateNotesPayload {
 export interface GenerateMcqsPayload {
   courseId: string;
   moduleId?: string;
+  lessonId?: string;
+  topic?: string;
   count?: number;
-  difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+  difficulty?: 'BALANCED' | 'EASY' | 'MEDIUM' | 'HARD';
 }
 
 export interface ReviewItemPayload {
@@ -75,8 +87,20 @@ export interface ReviewItemPayload {
   reviewNotes?: string;
 }
 
+export interface RegenerateMcqPayload {
+  feedback?: string;
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+}
+
+export interface UpdateGeneratedItemPayload {
+  title?: string;
+  content: any;
+  reviewNotes?: string;
+}
+
 export interface TutorChatPayload {
-  courseId: string;
+  courseId?: string;
+  lessonId?: string;
   conversationId?: string;
   message: string;
 }
@@ -95,6 +119,38 @@ export async function generateAINotes(payload: GenerateNotesPayload): Promise<AI
 export async function generateAIMcqs(payload: GenerateMcqsPayload): Promise<AIGeneratedItem[]> {
   const res = await apiClient.post<ApiSuccessResponse<AIGeneratedItem[]>>('/ai/generate-mcqs', payload);
   return res.data.data;
+}
+
+/**
+ * 2b. Regenerate Individual MCQ Item (ADMIN & TRAINER)
+ */
+export async function regenerateSingleMcqApi(
+  id: string,
+  payload?: RegenerateMcqPayload
+): Promise<AIGeneratedItem> {
+  const res = await apiClient.post<ApiSuccessResponse<AIGeneratedItem>>(`/ai/generated-items/${id}/regenerate`, payload || {});
+  return res.data.data;
+}
+
+/**
+ * 2c. Update / Edit Generated Item Content (ADMIN & TRAINER)
+ */
+export async function updateGeneratedItemApi(
+  id: string,
+  payload: UpdateGeneratedItemPayload
+): Promise<AIGeneratedItem> {
+  const res = await apiClient.patch<ApiSuccessResponse<AIGeneratedItem>>(`/ai/generated-items/${id}`, payload);
+  return res.data.data;
+}
+
+/**
+ * 2d. Delete Generated Item from Review Queue (ADMIN & TRAINER)
+ */
+export async function deleteGeneratedItemApi(
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await apiClient.delete<ApiSuccessResponse<{ success: boolean; message: string }>>(`/ai/generated-items/${id}`);
+  return res.data.data || { success: true, message: 'Item deleted' };
 }
 
 /**
@@ -137,4 +193,28 @@ export async function sendTutorMessage(payload: TutorChatPayload): Promise<Tutor
 export async function fetchTutorConversations(): Promise<TutorConversation[]> {
   const res = await apiClient.get<ApiSuccessResponse<TutorConversation[]>>('/ai/tutor/conversations');
   return res.data.data;
+}
+
+/**
+ * 7. Fetch Messages for a Specific Tutor Conversation
+ */
+export async function fetchTutorConversationMessages(
+  conversationId: string
+): Promise<{ conversation: TutorConversation; messages: Array<{ id: string; role: ChatRole; content: string; citations?: Citation[]; created_at: string }> }> {
+  const res = await apiClient.get<ApiSuccessResponse<{ conversation: TutorConversation; messages: Array<{ id: string; role: ChatRole; content: string; citations?: Citation[]; created_at: string }> }>>(
+    `/ai/tutor/conversations/${conversationId}`
+  );
+  return res.data.data;
+}
+
+/**
+ * 8. Delete a Tutor Conversation
+ */
+export async function deleteTutorConversation(
+  conversationId: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await apiClient.delete<ApiSuccessResponse<{ success: boolean; message: string }>>(
+    `/ai/tutor/conversations/${conversationId}`
+  );
+  return res.data.data || { success: true, message: 'Conversation deleted' };
 }

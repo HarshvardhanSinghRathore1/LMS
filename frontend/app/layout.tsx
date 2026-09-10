@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
+
+const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'Capacity Connect | Digital Capacity Building & LMS',
@@ -15,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="bg-onyx text-white dark:bg-[#0b090a] dark:text-[#f5f3f4] light:bg-[#f8f9fa] light:text-[#111827] font-sans antialiased selection:bg-mahogany-red selection:text-white transition-colors duration-200">
+      <body className={`${inter.className} bg-onyx text-white dark:bg-[#0b090a] dark:text-[#f5f3f4] light:bg-[#f8f9fa] light:text-[#111827] antialiased selection:bg-mahogany-red selection:text-white transition-colors duration-200`}>
         <AuthProvider>
           <ThemeProvider>
             {children}

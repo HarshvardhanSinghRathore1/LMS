@@ -484,6 +484,23 @@ export class CourseRepository {
       );
       const lessons: CourseLessonRecord[] = lessonsRes.rows;
 
+      if (lessons.length > 0) {
+        const lessonIds = lessons.map((l) => l.id);
+        const resourcesRes = await query(
+          `SELECT * FROM lesson_resources WHERE lesson_id = ANY($1) ORDER BY created_at ASC;`,
+          [lessonIds]
+        );
+        const resourceMap = new Map<string, any[]>();
+        resourcesRes.rows.forEach((r) => {
+          if (!resourceMap.has(r.lesson_id)) resourceMap.set(r.lesson_id, []);
+          resourceMap.get(r.lesson_id)!.push(r);
+        });
+
+        lessons.forEach((l) => {
+          l.resources = resourceMap.get(l.id) || [];
+        });
+      }
+
       // Group lessons by module_id
       const lessonMap = new Map<string, CourseLessonRecord[]>();
       lessons.forEach((l) => {

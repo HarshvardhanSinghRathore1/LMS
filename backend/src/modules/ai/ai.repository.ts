@@ -155,6 +155,54 @@ export class AIRepository {
   }
 
   /**
+   * Update content and title of a generated item (Trainer Edit)
+   */
+  async updateGeneratedItemContent(
+    id: string,
+    organizationId: string,
+    content: any,
+    title?: string,
+    reviewNotes?: string
+  ): Promise<AIGeneratedItemRecord | null> {
+    const updates: string[] = ['content = $1', 'updated_at = CURRENT_TIMESTAMP'];
+    const params: any[] = [JSON.stringify(content), id, organizationId];
+    let paramIndex = 4;
+
+    if (title) {
+      updates.push(`title = $${paramIndex++}`);
+      params.push(title);
+    }
+    if (reviewNotes !== undefined) {
+      updates.push(`review_notes = $${paramIndex++}`);
+      params.push(reviewNotes);
+    }
+
+    const query = `
+      UPDATE ai_generated_items
+      SET ${updates.join(', ')}
+      WHERE id = $2 AND organization_id = $3
+      RETURNING *;
+    `;
+    const result = await pool.query<AIGeneratedItemRecord>(query, params);
+    return result.rows[0] || null;
+  }
+
+  /**
+   * Delete a generated item from review queue
+   */
+  async deleteGeneratedItem(
+    id: string,
+    organizationId: string
+  ): Promise<boolean> {
+    const query = `
+      DELETE FROM ai_generated_items
+      WHERE id = $1 AND organization_id = $2;
+    `;
+    const result = await pool.query(query, [id, organizationId]);
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  /**
    * Atomic PostgreSQL Transaction for approving an AI MCQ and importing it into assessment_questions
    */
   async importMcqToAssessmentTransaction(

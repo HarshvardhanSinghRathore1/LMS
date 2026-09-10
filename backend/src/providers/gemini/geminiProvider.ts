@@ -32,8 +32,30 @@ export class GeminiProvider implements IAIProvider {
     }
     messages.push(new HumanMessage(prompt));
 
-    const response = await this.model.invoke(messages);
-    return typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+    const candidateModels = [
+      config.ai.geminiModel || 'gemini-1.5-flash',
+      'gemini-1.5-flash',
+      'gemini-2.0-flash',
+    ].filter((m, i, self) => Boolean(m) && self.indexOf(m) === i);
+
+    let lastError: any = null;
+    for (const modelName of candidateModels) {
+      try {
+        const client = new ChatGoogleGenerativeAI({
+          apiKey: config.ai.geminiApiKey,
+          model: modelName,
+          temperature: options?.temperature ?? config.ai.temperature,
+          maxRetries: 1,
+        });
+        const response = await client.invoke(messages);
+        return typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[GeminiProvider] Attempt with model "${modelName}" failed: ${err.message}`);
+      }
+    }
+
+    throw lastError || new Error('Gemini text generation failed across all candidate models.');
   }
 
   async generateStructured<T>(prompt: string, options: AIProviderStructuredOptions<T>): Promise<T> {
