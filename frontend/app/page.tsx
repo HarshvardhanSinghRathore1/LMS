@@ -2,795 +2,1265 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { fetchApiHealth } from '../lib/api';
+import { AppShell } from '../components/layout/AppShell';
 import { useAuth } from '../context/AuthContext';
-import { testRbacEndpoint } from '../lib/auth';
-import { SystemStatusBanner } from '../components/ui/SystemStatusBanner';
-import { ArchitectureGrid } from '../components/ui/ArchitectureGrid';
-import { AIFoundationCard } from '../components/ui/AIFoundationCard';
-import { StageRoadmap } from '../components/ui/StageRoadmap';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
 import { StatCard } from '../components/ui/StatCard';
+import { ProgressBar } from '../components/ui/ProgressBar';
+import { Skeleton, CardSkeleton, MetricSkeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ErrorState } from '../components/ui/ErrorState';
+
+// API Clients
+import { fetchMyEnrollmentsApi, CourseEnrollment } from '../lib/enrollments';
+import { fetchMyRecommendationsApi, RecommendationWithDetails } from '../lib/recommendations';
+import { fetchMyCompetencyGapsApi, TraineeCompetency } from '../lib/competencies';
+import { getMyCertificatesApi, Certificate } from '../lib/certificates';
+import { getTraineeSummaryApi, getOrgDashboardApi, TraineeSummaryMetrics, OrgDashboardMetrics } from '../lib/analytics';
+import { fetchCoursesApi, Course } from '../lib/courses';
+import { getTrainerSessionsApi, SessionRequest } from '../lib/trainerMatching';
+import { fetchApiHealth } from '../lib/api';
+
+// Icons
 import {
-  Database,
-  Layers,
-  Server,
-  AlertTriangle,
-  ArrowRight,
-  Code,
-  Palette,
-  Compass,
-  ShieldCheck,
-  UserCheck,
-  LogOut,
-  LogIn,
-  UserPlus,
-  Lock,
+  Sparkles,
   BookOpen,
-  Plus,
+  GraduationCap,
   CheckSquare,
   Award,
-  Sparkles,
+  ShieldCheck,
+  Users,
   Bot,
-  BarChart3,
-  Bell,
-  ShieldAlert,
-  Brain,
+  ArrowRight,
+  TrendingUp,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle,
+  Layers,
+  ArrowUpRight,
+  Shield,
+  Activity,
+  Plus,
+  Compass,
+  FileText,
+  Calendar,
+  Zap,
 } from 'lucide-react';
-import { NotificationBell } from '../components/ui/NotificationBell';
 
-const COLOR_SWATCHES = [
-  { name: 'Onyx', hex: '#0b090a', role: 'Primary App Background', bgClass: 'bg-[#0b090a]' },
-  { name: 'Carbon Black', hex: '#161a1d', role: 'Secondary Surfaces & Cards', bgClass: 'bg-[#161a1d]' },
-  { name: 'Dark Garnet', hex: '#660708', role: 'Deep Accent & Visual Depth', bgClass: 'bg-[#660708]' },
-  { name: 'Mahogany Red', hex: '#a4161a', role: 'Primary Brand & CTA Buttons', bgClass: 'bg-[#a4161a]' },
-  { name: 'Mahogany Red 2', hex: '#ba181b', role: 'Active Navigation & Selected States', bgClass: 'bg-[#ba181b]' },
-  { name: 'Strawberry Red', hex: '#e5383b', role: 'Alerts, Progress & Highlights', bgClass: 'bg-[#e5383b]' },
-  { name: 'Silver', hex: '#b1a7a6', role: 'Secondary Text & Icons', bgClass: 'bg-[#b1a7a6]' },
-  { name: 'Dust Grey', hex: '#d3d3d3', role: 'Secondary UI & Borders', bgClass: 'bg-[#d3d3d3]' },
-  { name: 'White Smoke', hex: '#f5f3f4', role: 'Light Content Surface', bgClass: 'bg-[#f5f3f4]' },
-  { name: 'White', hex: '#ffffff', role: 'Primary Headings & Key Data', bgClass: 'bg-[#ffffff]' },
-];
+export default function RootDashboardPage() {
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
-export default function DashboardPage() {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  return (
+    <AppShell>
+      {isAuthLoading ? (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <Skeleton className="h-36 w-full rounded-2xl" />
+          <MetricSkeleton count={4} />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <CardSkeleton count={2} />
+            </div>
+            <div>
+              <CardSkeleton count={2} />
+            </div>
+          </div>
+        </div>
+      ) : !isAuthenticated ? (
+        <GuestLandingView />
+      ) : user?.role === 'TRAINER' ? (
+        <TrainerDashboardView user={user} />
+      ) : user?.role === 'ADMIN' ? (
+        <AdminDashboardView user={user} />
+      ) : (
+        <TraineeDashboardView user={user} />
+      )}
+    </AppShell>
+  );
+}
 
-  const [healthState, setHealthState] = useState<{
-    apiStatus: 'healthy' | 'degraded' | 'loading';
-    dbStatus: 'connected' | 'disconnected' | 'loading';
-    latencyMs?: number;
-    requestId?: string;
-    errorMsg?: string;
-  }>({
-    apiStatus: 'loading',
-    dbStatus: 'loading',
-  });
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. TRAINEE DASHBOARD (PRIMARY SHOWCASE)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const [rbacTestResult, setRbacTestResult] = useState<{
-    roleTested: string;
-    status: number | string;
-    message: string;
-    success: boolean;
-  } | null>(null);
+function TraineeDashboardView({ user }: { user: any }) {
+  // State hooks with isolated loading & error states
+  const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
+  const [isEnrollmentsLoading, setIsEnrollmentsLoading] = useState(true);
+  const [enrollmentsError, setEnrollmentsError] = useState<string | null>(null);
 
-  const checkHealth = async () => {
-    setHealthState((prev) => ({ ...prev, apiStatus: 'loading', dbStatus: 'loading' }));
-    const result = await fetchApiHealth();
+  const [recommendations, setRecommendations] = useState<RecommendationWithDetails[]>([]);
+  const [isRecsLoading, setIsRecsLoading] = useState(true);
+  const [recsError, setRecsError] = useState<string | null>(null);
 
-    if (result.isHealthy && result.data) {
-      setHealthState({
-        apiStatus: 'healthy',
-        dbStatus: 'connected',
-        latencyMs: result.latencyMs,
-        requestId: result.requestId,
-      });
-    } else {
-      setHealthState({
-        apiStatus: 'degraded',
-        dbStatus: result.data?.database === 'connected' ? 'connected' : 'disconnected',
-        latencyMs: result.latencyMs,
-        requestId: result.requestId,
-        errorMsg: result.error || 'Failed to ping backend API',
-      });
-    }
+  const [competencies, setCompetencies] = useState<TraineeCompetency[]>([]);
+  const [isCompLoading, setIsCompLoading] = useState(true);
+  const [compError, setCompError] = useState<string | null>(null);
+
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [isCertsLoading, setIsCertsLoading] = useState(true);
+  const [certsError, setCertsError] = useState<string | null>(null);
+
+  const [summaryMetrics, setSummaryMetrics] = useState<TraineeSummaryMetrics | null>(null);
+  const [isMetricsLoading, setIsMetricsLoading] = useState(true);
+
+  // Time-aware greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  const displayName = user?.name || user?.email?.split('@')[0] || 'Learner';
+
+  // Load trainee data
+  const loadTraineeData = async () => {
+    // 1. Enrollments
+    setIsEnrollmentsLoading(true);
+    setEnrollmentsError(null);
+    fetchMyEnrollmentsApi()
+      .then((res) => setEnrollments(res?.enrollments || []))
+      .catch((err) => setEnrollmentsError(err.response?.data?.error?.message || 'Unable to load enrollments'))
+      .finally(() => setIsEnrollmentsLoading(false));
+
+    // 2. Recommendations
+    setIsRecsLoading(true);
+    setRecsError(null);
+    fetchMyRecommendationsApi()
+      .then((data) => setRecommendations(data || []))
+      .catch((err) => setRecsError(err.response?.data?.error?.message || 'Unable to load recommendations'))
+      .finally(() => setIsRecsLoading(false));
+
+    // 3. Competencies
+    setIsCompLoading(true);
+    setCompError(null);
+    fetchMyCompetencyGapsApi()
+      .then((data) => setCompetencies(data || []))
+      .catch((err) => setCompError(err.response?.data?.error?.message || 'Unable to load competency gaps'))
+      .finally(() => setIsCompLoading(false));
+
+    // 4. Certificates
+    setIsCertsLoading(true);
+    setCertsError(null);
+    getMyCertificatesApi()
+      .then((data) => setCertificates(data || []))
+      .catch((err) => setCertsError(err.response?.data?.error?.message || 'Unable to load certificates'))
+      .finally(() => setIsCertsLoading(false));
+
+    // 5. Analytics Summary
+    setIsMetricsLoading(true);
+    getTraineeSummaryApi()
+      .then((data) => setSummaryMetrics(data))
+      .catch(() => setSummaryMetrics(null))
+      .finally(() => setIsMetricsLoading(false));
   };
 
   useEffect(() => {
-    checkHealth();
-    const interval = setInterval(checkHealth, 15000);
-    return () => clearInterval(interval);
+    loadTraineeData();
   }, []);
 
-  const handleTestRbac = async (role: 'admin' | 'trainer' | 'trainee') => {
-    try {
-      const res = await testRbacEndpoint(role);
-      setRbacTestResult({
-        roleTested: role.toUpperCase(),
-        status: 200,
-        message: res.data?.message || res.message || 'Access Authorized',
-        success: true,
-      });
-    } catch (err: any) {
-      const status = err.response?.status || 500;
-      const message = err.response?.data?.error?.message || err.message || 'Access Denied';
-      setRbacTestResult({
-        roleTested: role.toUpperCase(),
-        status,
-        message: `HTTP ${status}: ${message}`,
-        success: false,
-      });
-    }
-  };
+  // Compute active enrollments (IN_PROGRESS or ENROLLED)
+  const activeEnrollments = enrollments.filter(
+    (e) => e.status === 'IN_PROGRESS' || e.status === 'ENROLLED'
+  );
+  const completedEnrollments = enrollments.filter((e) => e.status === 'COMPLETED');
 
-  const isManagementAllowed = user?.role === 'ADMIN' || user?.role === 'TRAINER';
+  // Compute overall progress %
+  const totalCourses = enrollments.length;
+  const overallProgressPercentage =
+    totalCourses > 0
+      ? Math.round(
+          enrollments.reduce((sum, e) => sum + (Number(e.progress_percentage) || 0), 0) / totalCourses
+        )
+      : 0;
 
   return (
-    <main className="min-h-screen bg-onyx text-white p-4 md:p-8 max-w-7xl mx-auto space-y-8">
-      {/* SECTION 1 — Application Name & Vision */}
-      <header className="border-b border-silver/15 pb-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="brand" size="md">SIH 2026 — PS 26075</Badge>
-              <Badge variant="neutral" size="md">THEME: SMART EDUCATION</Badge>
+    <div className="space-y-8 animate-in fade-in duration-200">
+      {/* ── HERO BANNER ────────────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-carbon-black via-[#161a1d] to-dark-garnet/50 dark:from-[#161a1d] dark:via-[#161a1d] dark:to-dark-garnet/40 light:from-white light:via-red-50/40 light:to-white border border-silver/20 dark:border-white/10 light:border-gray-200 p-6 sm:p-8 shadow-xl">
+        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-strawberry-red/10 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <Badge variant="brand" size="sm">
+                TRAINEE LEARNING WORKSPACE
+              </Badge>
+              <span className="text-xs text-silver dark:text-silver light:text-gray-500 font-medium">
+                Continuous Competency Track
+              </span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight flex items-center gap-3">
-              CAPACITY CONNECT
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white dark:text-white light:text-gray-900 tracking-tight">
+              {getGreeting()}, {displayName} 👋
             </h1>
-            <p className="text-sm md:text-base text-silver mt-1 font-medium">
-              Digital Capacity Building & AI-Powered Learning Management Platform
+            <p className="text-sm sm:text-base text-silver dark:text-silver light:text-gray-600 font-medium">
+              Continue building your organizational competencies and reach your verified learning goals.
             </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <NotificationBell />
-            <div className="text-right flex flex-col items-end gap-1">
-              <span className="text-xs font-mono text-silver">Current Stage</span>
-              <Badge variant="brand" size="md">STAGE 11 — NOTIFICATIONS &amp; ENTERPRISE AUDIT</Badge>
-            </div>
-          </div>
-        </div>
 
-        {/* Continuous Competency Cycle Diagram */}
-        <div className="mt-6 p-4 bg-carbon-black rounded-lg border border-silver/15">
-          <span className="text-xs font-bold text-silver uppercase tracking-wider block mb-2">
-            Continuous Competency Development Loop (Core Vision)
-          </span>
-          <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-silver">
-            <span className="px-2.5 py-1 bg-dark-garnet/50 border border-mahogany-red rounded text-white font-semibold">LEARN</span>
-            <ArrowRight className="w-3.5 h-3.5 text-strawberry-red shrink-0" />
-            <span className="px-2.5 py-1 bg-dark-garnet/50 border border-mahogany-red rounded text-white font-semibold">ASSESS</span>
-            <ArrowRight className="w-3.5 h-3.5 text-strawberry-red shrink-0" />
-            <span className="px-2.5 py-1 bg-dark-garnet/50 border border-mahogany-red rounded text-white font-semibold">MEASURE COMPETENCY</span>
-            <ArrowRight className="w-3.5 h-3.5 text-strawberry-red shrink-0" />
-            <span className="px-2.5 py-1 bg-dark-garnet/50 border border-mahogany-red rounded text-white font-semibold">IDENTIFY SKILL GAP</span>
-            <ArrowRight className="w-3.5 h-3.5 text-strawberry-red shrink-0" />
-            <span className="px-2.5 py-1 bg-dark-garnet/50 border border-mahogany-red rounded text-white font-semibold">RECOMMEND LEARNING</span>
-            <ArrowRight className="w-3.5 h-3.5 text-strawberry-red shrink-0" />
-            <span className="px-2.5 py-1 bg-dark-garnet/50 border border-mahogany-red rounded text-white font-semibold">CONNECT WITH TRAINER</span>
-          </div>
-        </div>
-      </header>
-
-      {/* STAGE 4 — ASSESSMENT ENGINE QUICK ACCESS CARD */}
-      <section>
-        <Card
-          title="Stage 4 — Assessment Engine & Automated Grading Control Hub"
-          subtitle="Multi-tenant assessment creation, MCQ & True/False questions, secure timed attempts, and server-side automated grading"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-neutral-800">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <CheckSquare className="w-4 h-4 text-[var(--strawberry-red)]" />
-                Assessment Engine & Result Center
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Take published assessments for enrolled courses, manage tests and questions (Trainers/Admins), and monitor organization metrics.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Link
-                href="/assessments"
-                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-[#660708] via-[#a4161a] to-[#e5383b] hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2"
-              >
-                <CheckSquare className="w-4 h-4" />
-                <span>Assessments Hub</span>
+            <div className="flex flex-wrap items-center gap-3 pt-3">
+              <Link href="/my-learning">
+                <Button variant="brand" size="md" className="gap-2">
+                  <GraduationCap className="w-4 h-4" />
+                  Continue Learning
+                </Button>
+              </Link>
+              <Link href="/courses">
+                <Button variant="secondary" size="md" className="gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Explore Courses
+                </Button>
+              </Link>
+              <Link href="/ai-tools">
+                <Button variant="outline" size="md" className="gap-2">
+                  <Bot className="w-4 h-4 text-strawberry-red" />
+                  Ask AI Tutor
+                </Button>
               </Link>
             </div>
           </div>
-        </Card>
-      </section>
 
-      {/* STAGE 3 — MY LEARNING & PROGRESS QUICK ACCESS CARD */}
-      <section>
-        <Card
-          title="Stage 3 — Trainee Enrollment & Progress Control Hub"
-          subtitle="Course enrollment lifecycle, real-time lesson progress engine, and organization learning metrics"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-neutral-800">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-[var(--strawberry-red)]" />
-                Trainee Learning Workspace & Completion Engine
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Enroll in published courses, track completed lessons, monitor course progress percentage, and view organizational stats.
-              </p>
+          {/* Quick Progress Overview Box */}
+          <div className="bg-onyx/80 dark:bg-[#0b090a]/80 light:bg-white/90 backdrop-blur-md rounded-xl p-5 border border-silver/15 dark:border-white/10 light:border-gray-200 min-w-[260px] space-y-3 shrink-0 shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-silver dark:text-silver light:text-gray-500">
+                Overall Progress
+              </span>
+              <span className="text-xs font-mono font-bold text-strawberry-red">
+                {overallProgressPercentage}%
+              </span>
             </div>
+            <ProgressBar value={overallProgressPercentage} size="md" showPercentage={false} />
+            <div className="grid grid-cols-3 gap-2 text-center pt-1 border-t border-silver/10 light:border-gray-100 text-xs">
+              <div>
+                <div className="font-bold text-white dark:text-white light:text-gray-900 font-mono">
+                  {totalCourses}
+                </div>
+                <div className="text-[10px] text-silver dark:text-silver light:text-gray-500">Enrolled</div>
+              </div>
+              <div>
+                <div className="font-bold text-emerald-400 light:text-emerald-600 font-mono">
+                  {completedEnrollments.length}
+                </div>
+                <div className="text-[10px] text-silver dark:text-silver light:text-gray-500">Completed</div>
+              </div>
+              <div>
+                <div className="font-bold text-amber-400 light:text-amber-600 font-mono">
+                  {activeEnrollments.length}
+                </div>
+                <div className="text-[10px] text-silver dark:text-silver light:text-gray-500">In Progress</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto">
+      {/* ── KPI METRICS SECTION ────────────────────────────────────────────────── */}
+      {isMetricsLoading && !summaryMetrics ? (
+        <MetricSkeleton count={5} />
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
+          <StatCard
+            label="Courses Enrolled"
+            value={summaryMetrics?.coursesEnrolled ?? totalCourses}
+            subtext={`${activeEnrollments.length} currently active`}
+            icon={<BookOpen className="w-4 h-4" />}
+            status="neutral"
+          />
+          <StatCard
+            label="Completed"
+            value={summaryMetrics?.coursesCompleted ?? completedEnrollments.length}
+            subtext="100% finished courses"
+            icon={<CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+            status="success"
+          />
+          <StatCard
+            label="Average Score"
+            value={
+              summaryMetrics?.averageAssessmentScore !== undefined
+                ? `${summaryMetrics.averageAssessmentScore}%`
+                : '—'
+            }
+            subtext="Across assessments"
+            icon={<Award className="w-4 h-4 text-amber-400" />}
+            status="warning"
+          />
+          <StatCard
+            label="Skill Gaps"
+            value={summaryMetrics?.skillGapCount ?? competencies.length}
+            subtext="Targeted for growth"
+            icon={<TrendingUp className="w-4 h-4 text-strawberry-red" />}
+            status="danger"
+          />
+          <StatCard
+            label="Certificates"
+            value={summaryMetrics?.certificatesEarned ?? certificates.length}
+            subtext="Verified credentials"
+            icon={<ShieldCheck className="w-4 h-4 text-emerald-400" />}
+            status="success"
+          />
+        </div>
+      )}
+
+      {/* ── MAIN CONTENT TWO-COLUMN GRID ───────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* LEFT COLUMN (2 Cols): Continue Learning & Recommendations */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* SECTION: CONTINUE LEARNING */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-white dark:text-white light:text-gray-900 tracking-tight flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-strawberry-red" />
+                  Continue Learning
+                </h2>
+                <p className="text-xs text-silver dark:text-silver light:text-gray-500">
+                  Pick up where you left off in your active courses
+                </p>
+              </div>
               <Link
                 href="/my-learning"
-                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-[#660708] via-[#a4161a] to-[#e5383b] hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2"
+                className="text-xs font-semibold text-strawberry-red hover:underline flex items-center gap-1"
               >
-                <BookOpen className="w-4 h-4" />
-                <span>My Learning Dashboard</span>
+                View all ({enrollments.length})
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
-          </div>
-        </Card>
-      </section>
 
-      {/* STAGE 2 — COURSE MANAGEMENT QUICK ACCESS CARD */}
-      <section>
-        <Card
-          title="Stage 2 — Course Management Control Hub"
-          subtitle="Multi-tenant structured course curriculum, modules, lessons, and AI RAG vector publishing"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-neutral-800">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-[var(--strawberry-red)]" />
-                Organizational Course Catalog & Curriculum Builder
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Browse published course offerings, structured modules, and Markdown/video lessons scoped to your tenant.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Link
-                href="/courses"
-                className="flex-1 md:flex-initial px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Open Catalog</span>
-              </Link>
-
-              {isManagementAllowed && (
-                <Link
-                  href="/courses/create"
-                  className="flex-1 md:flex-initial px-4 py-2 bg-[var(--mahogany-red)] hover:bg-[var(--strawberry-red)] text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Build Course</span>
-                </Link>
-              )}
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* STAGE 5 — COMPETENCY ENGINE QUICK ACCESS CARD */}
-      <section>
-        <Card
-          title="Stage 5 — Competency Engine & Skill Gap Analysis"
-          subtitle="Multi-tenant competency catalog, 70% assessment + 30% progress weighted evaluations, and skill gap matrix"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-neutral-800">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <Award className="w-4 h-4 text-[var(--strawberry-red)]" />
-                Competency Hub & Organization Skill Gap Matrix
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Manage competencies, map courses with custom weights, view real-time proficiency scores (0–100%), and analyze remaining skill gaps.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Link
-                href="/competencies"
-                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-[#660708] via-[#a4161a] to-[#e5383b] hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2"
-              >
-                <Award className="w-4 h-4" />
-                <span>Competency Workspace</span>
-              </Link>
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* STAGE 6 — AI FEATURES QUICK ACCESS CARD */}
-      <section>
-        <Card
-          title="Stage 6 — AI-Assisted Content Generation &amp; Course-Aware AI Tutor"
-          subtitle="AI study notes, MCQ generation with trainer review workflow, and course-scoped RAG AI tutor"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-purple-900/40">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <Bot className="w-4 h-4 text-purple-400" />
-                AI Workspace, Content Generator &amp; AI Tutor
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Admins &amp; Trainers can generate AI study notes and MCQs for review. Trainees get a course-aware AI Tutor grounded in actual lesson content via RAG.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Link
-                href="/ai-tools"
-                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-purple-950 to-violet-800 hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-purple-700/50"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Open AI Workspace</span>
-              </Link>
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* STAGE 7 — PERSONALIZED RECOMMENDATIONS QUICK ACCESS CARD */}
-      <section>
-        <Card
-          title="Stage 7 — Personalized Recommendations &amp; Adaptive Learning Path Engine"
-          subtitle="Deterministic PostgreSQL 60% Skill Gap + 25% Competency Mapping + 15% Completion Rate recommendation model"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-red-900/40">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[var(--strawberry-red)]" />
-                Recommendations &amp; Adaptive Pathway Hub
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Trainees receive explainable course suggestions targeting verified competency gaps and an adaptive step-by-step learning pathway.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Link
-                href="/recommendations"
-                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-[#660708] via-[#a4161a] to-[#e5383b] hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Recommendations Workspace</span>
-              </Link>
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* STAGE 8 — INTELLIGENT TRAINER MATCHING QUICK ACCESS CARD */}
-      <section>
-        <Card
-          title="Stage 8 — Intelligent Trainer Matching Engine"
-          subtitle="Deterministic PostgreSQL 40% Skill Gap + 25% Rating + 20% Experience + 15% Capacity matching engine & 1-on-1 session requests"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-indigo-900/40">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-indigo-400" />
-                Smart Trainer Matching &amp; Session Management Hub
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Connect trainees with verified trainers in the same organization using explainable 4-factor scoring and transactional row-locking session requests.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Link
-                href="/trainer-matching"
-                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-indigo-900 via-indigo-700 to-purple-800 hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-indigo-500/30"
-              >
-                <UserCheck className="w-4 h-4" />
-                <span>Trainer Matching Hub</span>
-              </Link>
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* STAGE 9 — VERIFIED CERTIFICATES QUICK ACCESS CARD */}
-      <section>
-        <Card
-          title="Stage 9 — Course Completion Verification & Verified Certificate Generation Engine"
-          subtitle="100% deterministic course completion verification, transaction-safe issuance, SHA-256 tamper-proof hash, and unauthenticated public credential verification"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-emerald-900/40">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <Award className="w-4 h-4 text-emerald-400" />
-                Verified Certificate Vault &amp; Cryptographic Verification
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Trainees can claim tamper-proof certificates upon 100% course &amp; lesson completion + passing all published assessments (≥70%). Public verification available without authentication.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Link
-                href="/certificates"
-                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-emerald-900 via-teal-800 to-emerald-600 hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-emerald-500/30"
-              >
-                <Award className="w-4 h-4" />
-                <span>Certificate Vault</span>
-              </Link>
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* STAGE 10 — ORGANIZATION-WIDE ANALYTICS & EXECUTIVE DASHBOARD */}
-      <section>
-        <Card
-          title="Stage 10 — Organization-Wide Analytics & Executive Dashboard"
-          subtitle="Deterministic PostgreSQL analytics, enrollment funnels, assessment pass rates, competency coverage, and leaderboards"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-sky-900/40">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-sky-400" />
-                Executive KPIs, Skill Heatmap & Leaderboard Hub
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Admins and Trainers get real-time organizational funnel metrics, skill gap distributions, and course leaderboards. Trainees view personal progress stats.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Link
-                href="/analytics"
-                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-sky-900 via-blue-800 to-indigo-700 hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-sky-500/30"
-              >
-                <BarChart3 className="w-4 h-4" />
-                <span>Analytics Dashboard</span>
-              </Link>
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* STAGE 11 — NOTIFICATIONS & ENTERPRISE AUDIT TRAIL */}
-      <section>
-        <Card
-          title="Stage 11 — Notifications & Enterprise Audit Trail Engine"
-          subtitle="Event-driven in-app notifications, unread counters, and immutable organization-scoped audit logging for compliance"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-amber-900/40">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <Bell className="w-4 h-4 text-amber-400" />
-                Notification Center & Enterprise Audit Explorer
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Manage personal activity notifications and achievements. Administrators can explore immutable audit logs and export compliance records.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Link
-                href="/notifications"
-                className="flex-1 md:flex-initial px-4 py-2.5 bg-carbon-black hover:bg-white/10 text-white text-xs font-bold rounded-lg transition-all border border-white/10 flex items-center justify-center gap-2"
-              >
-                <Bell className="w-4 h-4 text-amber-400" />
-                <span>Notifications</span>
-              </Link>
-              {user?.role === 'ADMIN' && (
-                <Link
-                  href="/admin/audit"
-                  className="flex-1 md:flex-initial px-4 py-2.5 bg-gradient-to-r from-amber-900 via-red-800 to-mahogany-red hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-amber-500/30"
-                >
-                  <ShieldAlert className="w-4 h-4 text-white" />
-                  <span>Audit Explorer</span>
-                </Link>
-              )}
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* STAGE 12 — ADVANCED RAG & PERSISTENT LEARNER CONTEXT */}
-      <section>
-        <Card
-          title="Stage 12 — Advanced RAG & Persistent Learner Context Engine"
-          subtitle="Multi-stream context fusion: pgvector 384d semantic search, persistent temporal learner context facts, and citation-backed grounded answers"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-onyx rounded-lg border border-indigo-900/40">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <Brain className="w-4 h-4 text-indigo-400" />
-                Contextual AI Learning Assistant &amp; Learner Context Hub
-              </h4>
-              <p className="text-xs text-neutral-400">
-                Ask course questions grounded in verified documents with zero hallucinations. Includes automated struggle-concept tracking and multi-stream fusion.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Link
-                href="/my-learning/assistant"
-                className="flex-1 md:flex-initial px-5 py-2.5 bg-gradient-to-r from-indigo-900 via-purple-800 to-violet-700 hover:brightness-110 text-white text-xs font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 border border-indigo-500/30"
-              >
-                <Bot className="w-4 h-4" />
-                <span>AI Learning Assistant</span>
-              </Link>
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      <section>
-        <Card
-          title="Stage 1 — Authentication & Authorization Control Center"
-          subtitle="JWT access tokens, HttpOnly refresh token rotation, multi-tenant isolation, and RBAC authorization"
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: User Session Box */}
-            <div className="bg-onyx p-5 rounded-lg border border-neutral-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-silver uppercase tracking-wider flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-[var(--strawberry-red)]" />
-                  Current User Session
-                </h4>
-                {isLoading ? (
-                  <span className="text-xs text-amber-400 font-mono">Checking session...</span>
-                ) : isAuthenticated ? (
-                  <span className="text-xs bg-emerald-950 border border-emerald-800 text-emerald-400 px-2 py-0.5 rounded font-mono font-semibold">
-                    AUTHENTICATED
-                  </span>
-                ) : (
-                  <span className="text-xs bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded font-mono font-semibold">
-                    UNAUTHENTICATED
-                  </span>
-                )}
+            {isEnrollmentsLoading ? (
+              <div className="space-y-3">
+                <CardSkeleton count={2} />
               </div>
-
-              {isAuthenticated && user ? (
-                <div className="space-y-2 text-xs font-mono bg-carbon-black p-4 rounded border border-neutral-800">
-                  <div className="flex justify-between">
-                    <span className="text-neutral-400">User ID:</span>
-                    <span className="text-white truncate max-w-[200px]">{user.id}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-400">Name:</span>
-                    <span className="text-white font-bold">{user.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-400">Email:</span>
-                    <span className="text-white">{user.email}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-1 border-t border-neutral-800">
-                    <span className="text-neutral-400">Assigned Role:</span>
-                    <span className="px-2 py-0.5 bg-red-950 border border-red-800 text-[var(--strawberry-red)] rounded font-extrabold">
-                      {user.role}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-400">Tenant Org ID:</span>
-                    <span className="text-emerald-400 font-semibold">{user.organizationId}</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 bg-carbon-black rounded border border-neutral-800 text-center space-y-2">
-                  <p className="text-xs text-neutral-400">
-                    No active JWT session found. Sign in or register to test RBAC and tenant-scoped operations.
-                  </p>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-3 pt-2">
-                {isAuthenticated ? (
-                  <button
-                    onClick={() => logout()}
-                    className="flex-1 py-2 bg-red-950/80 hover:bg-red-900 border border-red-800 text-red-200 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    Sign Out
-                  </button>
-                ) : (
-                  <>
-                    <Link
-                      href="/login"
-                      className="flex-1 py-2 bg-[var(--mahogany-red)] hover:bg-[var(--strawberry-red)] text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <LogIn className="w-3.5 h-3.5" />
-                      Sign In
-                    </Link>
-                    <Link
-                      href="/register"
-                      className="flex-1 py-2 bg-carbon-black hover:bg-neutral-800 border border-neutral-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      Register Trainee
-                    </Link>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Right: RBAC Interactive Testing Box */}
-            <div className="bg-onyx p-5 rounded-lg border border-neutral-800 space-y-4">
-              <h4 className="text-xs font-bold text-silver uppercase tracking-wider flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[var(--strawberry-red)]" />
-                Live Role-Based Access Control (RBAC) Tester
-              </h4>
-
-              <p className="text-xs text-neutral-400">
-                Trigger protected test endpoints to verify permission middleware enforcement:
-              </p>
-
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => handleTestRbac('admin')}
-                  className="py-2 px-3 bg-carbon-black hover:bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-mono font-semibold text-red-400 flex items-center justify-center gap-1"
-                >
-                  <Lock className="w-3 h-3" />
-                  ADMIN
-                </button>
-                <button
-                  onClick={() => handleTestRbac('trainer')}
-                  className="py-2 px-3 bg-carbon-black hover:bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-mono font-semibold text-amber-400 flex items-center justify-center gap-1"
-                >
-                  <Lock className="w-3 h-3" />
-                  TRAINER
-                </button>
-                <button
-                  onClick={() => handleTestRbac('trainee')}
-                  className="py-2 px-3 bg-carbon-black hover:bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-mono font-semibold text-blue-400 flex items-center justify-center gap-1"
-                >
-                  <Lock className="w-3 h-3" />
-                  TRAINEE
-                </button>
-              </div>
-
-              {/* RBAC Test Output Display */}
-              {rbacTestResult && (
-                <div
-                  className={`p-4 rounded-lg border text-xs font-mono space-y-1 ${
-                    rbacTestResult.success
-                      ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300'
-                      : rbacTestResult.status === 403
-                      ? 'bg-amber-950/40 border-amber-800 text-amber-300'
-                      : 'bg-red-950/40 border-red-800 text-red-300'
-                  }`}
-                >
-                  <div className="flex justify-between font-bold border-b border-white/10 pb-1 mb-1">
-                    <span>TEST ENDPOINT: GET /api/v1/auth/test/{rbacTestResult.roleTested.toLowerCase()}</span>
-                    <span>STATUS: {rbacTestResult.status}</span>
-                  </div>
-                  <div>Result: {rbacTestResult.message}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* SECTION 2, 3, 4 — System Status & Live Health Indicators */}
-      <section className="space-y-4">
-        <SystemStatusBanner
-          apiStatus={healthState.apiStatus}
-          dbStatus={healthState.dbStatus}
-          latencyMs={healthState.latencyMs}
-          requestId={healthState.requestId}
-          onRefresh={checkHealth}
-        />
-
-        {healthState.errorMsg && (
-          <div className="p-3.5 bg-dark-garnet/40 border border-strawberry-red/50 rounded-lg text-xs text-strawberry-red flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              {healthState.errorMsg}
-            </span>
-            <span className="text-[11px] text-silver font-mono">
-              (Ensure backend is running on http://localhost:5000 and PostgreSQL credentials match .env)
-            </span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            label="Current Stage"
-            value="Stage 5"
-            subtext="Competency Engine"
-            status="neutral"
-            icon={<Compass className="w-5 h-5" />}
-          />
-          <StatCard
-            label="REST API Status"
-            value={healthState.apiStatus === 'loading' ? 'CHECKING...' : healthState.apiStatus.toUpperCase()}
-            subtext="Endpoint: /api/v1/health"
-            status={healthState.apiStatus === 'healthy' ? 'success' : healthState.apiStatus === 'loading' ? 'warning' : 'danger'}
-            icon={<Server className="w-5 h-5" />}
-          />
-          <StatCard
-            label="PostgreSQL Database"
-            value={healthState.dbStatus === 'loading' ? 'CHECKING...' : healthState.dbStatus.toUpperCase()}
-            subtext="007_competency_engine.sql Applied"
-            status={healthState.dbStatus === 'connected' ? 'success' : healthState.dbStatus === 'loading' ? 'warning' : 'danger'}
-            icon={<Database className="w-5 h-5" />}
-          />
-          <StatCard
-            label="Architecture Mode"
-            value="Modular Monolith"
-            subtext="Competencies + Gaps + 70/30 Engine"
-            status="neutral"
-            icon={<Layers className="w-5 h-5" />}
-          />
-        </div>
-      </section>
-
-      {/* STAGE 0.5 — AI & RAG Foundation Status */}
-      <section>
-        <AIFoundationCard />
-      </section>
-
-      {/* SECTION 5 — System Architecture Visualization */}
-      <section>
-        <ArchitectureGrid />
-      </section>
-
-      {/* SECTION 6 — Design System Token Showcase */}
-      <section>
-        <Card
-          title="Enterprise Design System & Token Showcase"
-          subtitle="Mandatory dark color palette tokens and Inter typography hierarchy"
-        >
-          <div className="space-y-6">
-            <div>
-              <h4 className="text-xs font-bold text-silver uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Palette className="w-4 h-4 text-strawberry-red" />
-                Color Palette Swatches
-              </h4>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {COLOR_SWATCHES.map((swatch) => (
+            ) : enrollmentsError ? (
+              <ErrorState
+                title="Unable to load active courses"
+                message={enrollmentsError}
+                onRetry={loadTraineeData}
+              />
+            ) : activeEnrollments.length === 0 ? (
+              <EmptyState
+                icon={BookOpen}
+                title="No courses in progress"
+                description="Start your personalized learning journey by exploring published courses."
+                actionText="Explore Course Catalog"
+                actionHref="/courses"
+              />
+            ) : (
+              <div className="space-y-3.5">
+                {activeEnrollments.slice(0, 3).map((enrollment) => (
                   <div
-                    key={swatch.name}
-                    className="p-3 rounded border border-silver/20 bg-onyx flex flex-col justify-between"
+                    key={enrollment.id}
+                    className="p-5 rounded-xl border border-silver/15 dark:border-white/10 light:border-gray-200/90 bg-carbon-black/70 dark:bg-[#161a1d] light:bg-white hover:border-mahogany-red/40 transition-all duration-200 shadow-sm hover:shadow-md space-y-3.5"
                   >
-                    <div className={`h-12 w-full rounded mb-2 border border-silver/10 ${swatch.bgClass}`} />
-                    <div>
-                      <div className="text-xs font-semibold text-white truncate">{swatch.name}</div>
-                      <div className="text-[11px] font-mono text-silver">{swatch.hex}</div>
-                      <div className="text-[10px] text-silver/70 mt-1 line-clamp-1">{swatch.role}</div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={enrollment.status === 'COMPLETED' ? 'success' : 'brand'}
+                            size="sm"
+                          >
+                            {enrollment.status.replace('_', ' ')}
+                          </Badge>
+                          {enrollment.category && (
+                            <span className="text-xs text-silver dark:text-silver light:text-gray-500 font-medium">
+                              • {enrollment.category}
+                            </span>
+                          )}
+                          {enrollment.difficulty_level && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-carbon-black/60 dark:bg-silver/10 light:bg-gray-100 text-silver dark:text-silver light:text-gray-600 font-mono">
+                              {enrollment.difficulty_level}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-base font-bold text-white dark:text-white light:text-gray-900 tracking-tight">
+                          {enrollment.course_title || 'Untitled Course'}
+                        </h3>
+                      </div>
+                      <Link href={`/courses/${enrollment.course_id}`}>
+                        <Button variant="brand" size="sm" className="gap-1.5 shrink-0 w-full sm:w-auto">
+                          Continue
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </Link>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1 border-t border-silver/10 light:border-gray-100">
+                      <div className="flex items-center justify-between text-xs text-silver dark:text-silver light:text-gray-500">
+                        <span>
+                          {enrollment.completed_lessons_count || 0} of{' '}
+                          {enrollment.total_lessons_count || 0} lessons completed
+                        </span>
+                        <span className="font-mono font-semibold text-white dark:text-white light:text-gray-900">
+                          {Math.round(enrollment.progress_percentage || 0)}%
+                        </span>
+                      </div>
+                      <ProgressBar
+                        value={Number(enrollment.progress_percentage) || 0}
+                        size="sm"
+                        showPercentage={false}
+                      />
                     </div>
                   </div>
                 ))}
               </div>
+            )}
+          </section>
+
+          {/* SECTION: RECOMMENDED FOR YOU */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-white dark:text-white light:text-gray-900 tracking-tight flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-strawberry-red" />
+                  Recommended For You
+                </h2>
+                <p className="text-xs text-silver dark:text-silver light:text-gray-500">
+                  AI-curated learning pathways matching your assessed skill gaps
+                </p>
+              </div>
+              <Link
+                href="/recommendations"
+                className="text-xs font-semibold text-strawberry-red hover:underline flex items-center gap-1"
+              >
+                View Pathways
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
 
-            <div className="border-t border-silver/10 pt-4">
-              <h4 className="text-xs font-bold text-silver uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Code className="w-4 h-4 text-strawberry-red" />
-                Typography Scale (Inter Sans-Serif)
-              </h4>
-              <div className="space-y-2 bg-onyx p-4 rounded border border-silver/10">
-                <div className="text-2xl font-extrabold text-white">Display Heading (24px Extrabold)</div>
-                <div className="text-xl font-bold text-white-smoke">H1 Heading (20px Bold)</div>
-                <div className="text-lg font-semibold text-white">H2 Heading (18px Semibold)</div>
-                <div className="text-base font-medium text-white-smoke">H3 Heading (16px Medium)</div>
-                <div className="text-sm font-normal text-silver">Body Text (14px Normal) — Highly readable enterprise typography</div>
-                <div className="text-xs font-normal text-silver/80">Small Text / Metadata (12px)</div>
-                <div className="text-[10px] font-mono text-silver/60">CAPTION / TRACING ID (10px Mono)</div>
+            {isRecsLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <CardSkeleton count={2} />
               </div>
+            ) : recsError ? (
+              <ErrorState
+                title="Unable to load recommendations"
+                message={recsError}
+                onRetry={loadTraineeData}
+              />
+            ) : recommendations.length === 0 ? (
+              <EmptyState
+                icon={Sparkles}
+                title="No active recommendations yet"
+                description="Take an assessment or explore competencies to generate adaptive recommendations."
+                actionText="View Competencies"
+                actionHref="/competencies"
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {recommendations.slice(0, 4).map((rec) => (
+                  <div
+                    key={rec.id}
+                    className="p-4 rounded-xl border border-silver/15 dark:border-white/10 light:border-gray-200 bg-carbon-black/60 dark:bg-[#161a1d] light:bg-white hover:border-mahogany-red/40 transition-all flex flex-col justify-between space-y-3 shadow-sm"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-dark-garnet/40 dark:bg-dark-garnet/30 light:bg-red-50 text-strawberry-red border border-mahogany-red/30">
+                          {Math.round(rec.match_score)}% MATCH
+                        </span>
+                        {rec.gap_percentage_addressed > 0 && (
+                          <span className="text-[10px] text-amber-400 light:text-amber-700 font-medium">
+                            Closes {Math.round(rec.gap_percentage_addressed)}% gap
+                          </span>
+                        )}
+                      </div>
+
+                      <h4 className="text-sm font-bold text-white dark:text-white light:text-gray-900 tracking-tight line-clamp-1">
+                        {rec.course_title}
+                      </h4>
+
+                      <p className="text-xs text-silver dark:text-silver light:text-gray-600 line-clamp-2">
+                        {rec.recommendation_reason || rec.course_description}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t border-silver/10 light:border-gray-100 flex items-center justify-between">
+                      <span className="text-[11px] text-silver/80 dark:text-silver/80 light:text-gray-500 font-medium">
+                        {rec.course_difficulty || 'All Levels'}
+                      </span>
+                      <Link href={`/courses/${rec.course_id}`}>
+                        <Button variant="outline" size="sm" className="text-xs py-1 px-3">
+                          View Course
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* RIGHT COLUMN (1 Col): Skills, Certificates, AI Tutor & Trainer Match */}
+        <div className="space-y-6">
+          {/* SECTION: SKILL COMPETENCY PROGRESS */}
+          <Card
+            title={
+              <div className="flex items-center gap-2 text-sm font-bold">
+                <Award className="w-4 h-4 text-strawberry-red" />
+                Your Skill Competencies
+              </div>
+            }
+            subtitle="Real-time proficiency scoring"
+            action={
+              <Link href="/competencies" className="text-xs text-strawberry-red hover:underline">
+                Matrix →
+              </Link>
+            }
+          >
+            {isCompLoading ? (
+              <div className="space-y-3 py-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-4 w-4/6" />
+              </div>
+            ) : compError ? (
+              <ErrorState title="Skills error" message={compError} onRetry={loadTraineeData} />
+            ) : competencies.length === 0 ? (
+              <div className="text-center py-6 space-y-2">
+                <Award className="w-8 h-8 text-silver/40 mx-auto" />
+                <p className="text-xs text-silver dark:text-silver light:text-gray-500">
+                  No competency gaps measured yet. Take assessments to map your skills.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 pt-1">
+                {competencies.slice(0, 4).map((comp) => {
+                  const score = Math.round(comp.current_score_percentage || 0);
+                  const profVariant =
+                    comp.proficiency_level === 'EXPERT'
+                      ? 'success'
+                      : comp.proficiency_level === 'ADVANCED'
+                      ? 'brand'
+                      : comp.proficiency_level === 'INTERMEDIATE'
+                      ? 'warning'
+                      : 'neutral';
+
+                  return (
+                    <div key={comp.id} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-white dark:text-white light:text-gray-900 truncate max-w-[140px]">
+                          {comp.competency_name || comp.competency_code}
+                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant={profVariant} size="sm">
+                            {comp.proficiency_level}
+                          </Badge>
+                          <span className="font-mono font-bold text-white dark:text-white light:text-gray-900">
+                            {score}%
+                          </span>
+                        </div>
+                      </div>
+                      <ProgressBar value={score} size="sm" showPercentage={false} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* SECTION: CERTIFICATES & ACHIEVEMENTS */}
+          <Card
+            title={
+              <div className="flex items-center gap-2 text-sm font-bold">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                Verified Achievements
+              </div>
+            }
+            subtitle="Cryptographically verified certificates"
+            action={
+              <Link href="/certificates" className="text-xs text-strawberry-red hover:underline">
+                View all →
+              </Link>
+            }
+          >
+            {isCertsLoading ? (
+              <Skeleton className="h-20 w-full" />
+            ) : certsError ? (
+              <ErrorState title="Certificates error" message={certsError} onRetry={loadTraineeData} />
+            ) : certificates.length === 0 ? (
+              <div className="text-center py-6 space-y-2">
+                <ShieldCheck className="w-8 h-8 text-silver/40 mx-auto" />
+                <p className="text-xs text-silver dark:text-silver light:text-gray-500">
+                  Complete 100% of a published course with passing assessment to earn verified certificates.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-1">
+                {certificates.slice(0, 2).map((cert) => (
+                  <div
+                    key={cert.id}
+                    className="p-3 rounded-lg border border-silver/15 dark:border-white/10 light:border-gray-200 bg-carbon-black/40 dark:bg-[#161a1d]/60 light:bg-gray-50 space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white dark:text-white light:text-gray-900 truncate">
+                        {cert.course_title || 'Course Certificate'}
+                      </span>
+                      <span className="text-[10px] font-mono text-emerald-400 light:text-emerald-700 font-bold">
+                        {Math.round(cert.final_score_percentage || 100)}% SCORE
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-silver dark:text-silver light:text-gray-500">
+                      <span className="font-mono text-[10px]">{cert.certificate_code}</span>
+                      <Link
+                        href={`/verify-certificate?code=${encodeURIComponent(cert.certificate_code)}`}
+                        className="text-strawberry-red hover:underline font-medium"
+                      >
+                        Verify ↗
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* SECTION: AI LEARNING ASSISTANT ENTRY */}
+          <div className="p-5 rounded-xl border border-strawberry-red/30 bg-gradient-to-br from-carbon-black via-dark-garnet/30 to-carbon-black dark:from-[#161a1d] dark:via-dark-garnet/20 dark:to-[#161a1d] light:from-red-50/50 light:to-white space-y-3 shadow-md">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-strawberry-red/20 text-strawberry-red flex items-center justify-center border border-strawberry-red/40">
+                <Bot className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-white dark:text-white light:text-gray-900">
+                AI Learning Assistant
+              </h3>
+            </div>
+            <p className="text-xs text-silver dark:text-silver light:text-gray-600">
+              Ask questions about your enrolled courses, clarify complex topics, or practice with AI MCQs.
+            </p>
+            <Link href="/ai-tools" className="block">
+              <Button variant="brand" size="sm" className="w-full gap-2">
+                <Sparkles className="w-3.5 h-3.5" />
+                Open AI Tutor &amp; Tools →
+              </Button>
+            </Link>
+          </div>
+
+          {/* SECTION: TRAINER MATCHING ENTRY */}
+          <div className="p-5 rounded-xl border border-silver/15 dark:border-white/10 light:border-gray-200 bg-carbon-black/60 dark:bg-[#161a1d] light:bg-white space-y-3 shadow-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 light:text-amber-700 flex items-center justify-center border border-amber-500/30">
+                <Users className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-white dark:text-white light:text-gray-900">
+                Need 1-on-1 Guidance?
+              </h3>
+            </div>
+            <p className="text-xs text-silver dark:text-silver light:text-gray-600">
+              Connect with verified trainers specializing in your identified skill gaps.
+            </p>
+            <Link href="/trainer-matching" className="block">
+              <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
+                Find a Trainer →
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. TRAINER DASHBOARD VIEW
+// ─────────────────────────────────────────────────────────────────────────────
+
+function TrainerDashboardView({ user }: { user: any }) {
+  const [orgMetrics, setOrgMetrics] = useState<OrgDashboardMetrics | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [sessions, setSessions] = useState<SessionRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setIsLoading(true);
+    Promise.allSettled([
+      getOrgDashboardApi(),
+      fetchCoursesApi(),
+      getTrainerSessionsApi(),
+    ]).then(([metricsRes, coursesRes, sessionsRes]) => {
+      if (metricsRes.status === 'fulfilled') setOrgMetrics(metricsRes.value);
+      if (coursesRes.status === 'fulfilled') setCourses(coursesRes.value?.courses || []);
+      if (sessionsRes.status === 'fulfilled') setSessions(sessionsRes.value || []);
+      setIsLoading(false);
+    });
+  }, []);
+
+  const pendingSessions = sessions.filter((s) => s.status === 'PENDING');
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-200">
+      {/* Header */}
+      <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-carbon-black via-[#161a1d] to-dark-garnet/40 dark:from-[#161a1d] dark:to-dark-garnet/30 light:from-white light:to-red-50 border border-silver/20 dark:border-white/10 light:border-gray-200 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-2 max-w-2xl">
+          <div className="flex items-center gap-2">
+            <Badge variant="warning" size="sm">
+              TRAINER DASHBOARD
+            </Badge>
+            <span className="text-xs text-silver dark:text-silver light:text-gray-500 font-medium">
+              Instructor &amp; Assessment Management
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white dark:text-white light:text-gray-900 tracking-tight">
+            Welcome, {user.name || 'Trainer'}
+          </h1>
+          <p className="text-xs sm:text-sm text-silver dark:text-silver light:text-gray-600">
+            Manage course curriculum, review AI-generated materials, and conduct 1-on-1 trainee mentoring sessions.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Link href="/courses/create">
+              <Button variant="brand" size="sm" className="gap-1.5">
+                <Plus className="w-4 h-4" />
+                Create New Course
+              </Button>
+            </Link>
+            <Link href="/ai-tools">
+              <Button variant="secondary" size="sm" className="gap-1.5">
+                <Sparkles className="w-4 h-4 text-strawberry-red" />
+                AI Review Queue
+              </Button>
+            </Link>
+            <Link href="/trainer-matching">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Users className="w-4 h-4" />
+                Trainee Sessions ({pendingSessions.length})
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        <div className="bg-onyx/80 dark:bg-[#0b090a]/80 light:bg-white/90 p-4 rounded-xl border border-silver/15 dark:border-white/10 light:border-gray-200 min-w-[220px] space-y-2 shrink-0">
+          <div className="text-xs text-silver font-semibold uppercase tracking-wider">Quick Jump</div>
+          <div className="space-y-1.5 text-xs">
+            <Link href="/courses" className="block text-white hover:text-strawberry-red transition-colors">
+              📚 Course Catalog ({courses.length})
+            </Link>
+            <Link href="/assessments" className="block text-white hover:text-strawberry-red transition-colors">
+              ✓ Assessment Bank
+            </Link>
+            <Link href="/admin/system" className="block text-silver hover:text-strawberry-red transition-colors">
+              ⚙️ System &amp; AI Telemetry
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Overview */}
+      {isLoading ? (
+        <MetricSkeleton count={4} />
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="Total Trainees"
+            value={orgMetrics?.totalTrainees || '—'}
+            subtext="In organization"
+            icon={<Users className="w-4 h-4 text-sky-400" />}
+            status="info"
+          />
+          <StatCard
+            label="Active Learners"
+            value={orgMetrics?.activeLearnersLast30Days || '—'}
+            subtext="Last 30 days"
+            icon={<Activity className="w-4 h-4 text-emerald-400" />}
+            status="success"
+          />
+          <StatCard
+            label="Course Completion"
+            value={
+              orgMetrics?.enrollment?.averageCompletionRate !== undefined
+                ? `${Math.round(orgMetrics.enrollment.averageCompletionRate)}%`
+                : '—'
+            }
+            subtext="Organization average"
+            icon={<GraduationCap className="w-4 h-4 text-amber-400" />}
+            status="warning"
+          />
+          <StatCard
+            label="Pending Sessions"
+            value={pendingSessions.length}
+            subtext="Awaiting your response"
+            icon={<Clock className="w-4 h-4 text-strawberry-red" />}
+            status="danger"
+          />
+        </div>
+      )}
+
+      {/* Two Column Layout: Courses & Sessions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Course Management */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white dark:text-white light:text-gray-900 tracking-tight flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-strawberry-red" />
+              Published &amp; Managed Courses
+            </h2>
+            <Link href="/courses" className="text-xs text-strawberry-red hover:underline">
+              Manage all →
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {courses.slice(0, 4).map((course) => (
+              <div
+                key={course.id}
+                className="p-4 rounded-xl border border-silver/15 dark:border-white/10 light:border-gray-200 bg-carbon-black/60 dark:bg-[#161a1d] light:bg-white flex items-center justify-between gap-4 shadow-sm"
+              >
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={
+                        course.status === 'PUBLISHED'
+                          ? 'success'
+                          : course.status === 'DRAFT'
+                          ? 'warning'
+                          : 'neutral'
+                      }
+                      size="sm"
+                    >
+                      {course.status}
+                    </Badge>
+                    <span className="text-xs text-silver truncate">• {course.category}</span>
+                  </div>
+                  <h4 className="text-sm font-bold text-white dark:text-white light:text-gray-900 truncate">
+                    {course.title}
+                  </h4>
+                </div>
+                <Link href={`/courses/${course.id}`}>
+                  <Button variant="outline" size="sm" className="text-xs shrink-0">
+                    Open
+                  </Button>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Pending Sessions & Skill Insights */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white dark:text-white light:text-gray-900 tracking-tight flex items-center gap-2">
+              <Users className="w-4 h-4 text-amber-400" />
+              Trainee Session Requests
+            </h2>
+            <Link href="/trainer-matching" className="text-xs text-strawberry-red hover:underline">
+              All sessions →
+            </Link>
+          </div>
+
+          {pendingSessions.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="No pending requests"
+              description="Trainee mentoring requests will appear here when learners book 1-on-1 sessions."
+            />
+          ) : (
+            <div className="space-y-3">
+              {pendingSessions.slice(0, 3).map((session) => (
+                <div
+                  key={session.id}
+                  className="p-4 rounded-xl border border-amber-800/40 bg-carbon-black/60 dark:bg-[#161a1d] light:bg-amber-50/50 space-y-2 shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white dark:text-white light:text-gray-900">
+                      Learner: {session.trainee_name || 'Trainee'}
+                    </span>
+                    <Badge variant="warning" size="sm">
+                      PENDING
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-silver dark:text-silver light:text-gray-600 line-clamp-2">
+                    Topic: {session.topic || 'General skill mentoring'}
+                  </p>
+                  <div className="pt-2 flex justify-end">
+                    <Link href="/trainer-matching">
+                      <Button variant="brand" size="sm" className="text-xs py-1 px-3">
+                        Review Request →
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. ADMIN DASHBOARD VIEW
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AdminDashboardView({ user }: { user: any }) {
+  const [metrics, setMetrics] = useState<OrgDashboardMetrics | null>(null);
+  const [healthStatus, setHealthStatus] = useState<string>('connected');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setIsLoading(true);
+    Promise.allSettled([getOrgDashboardApi(), fetchApiHealth()]).then(([mRes, hRes]) => {
+      if (mRes.status === 'fulfilled') setMetrics(mRes.value);
+      if (hRes.status === 'fulfilled' && hRes.value.isHealthy) setHealthStatus('healthy');
+      setIsLoading(false);
+    });
+  }, []);
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-200">
+      {/* Header */}
+      <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-carbon-black via-[#161a1d] to-dark-garnet/40 dark:from-[#161a1d] dark:to-dark-garnet/30 light:from-white light:to-red-50 border border-silver/20 dark:border-white/10 light:border-gray-200 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-2 max-w-2xl">
+          <div className="flex items-center gap-2">
+            <Badge variant="brand" size="sm">
+              ADMINISTRATION PORTAL
+            </Badge>
+            <span className="text-xs text-silver dark:text-silver light:text-gray-500 font-medium">
+              Enterprise Overview
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white dark:text-white light:text-gray-900 tracking-tight">
+            Organization Dashboard
+          </h1>
+          <p className="text-xs sm:text-sm text-silver dark:text-silver light:text-gray-600">
+            Monitor organizational capacity building, assessment completion rates, skill gaps, and system telemetry.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Link href="/analytics">
+              <Button variant="brand" size="sm" className="gap-1.5">
+                <Activity className="w-4 h-4" />
+                Full Analytics Matrix
+              </Button>
+            </Link>
+            <Link href="/admin/audit">
+              <Button variant="secondary" size="sm" className="gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-strawberry-red" />
+                Enterprise Audit Trail
+              </Button>
+            </Link>
+            <Link href="/admin/system">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Zap className="w-4 h-4" />
+                System Diagnostics
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* System Health Snapshot Box */}
+        <div className="bg-onyx/80 dark:bg-[#0b090a]/80 light:bg-white/90 p-4 rounded-xl border border-silver/15 dark:border-white/10 light:border-gray-200 min-w-[240px] space-y-2.5 shrink-0 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-silver">System Telemetry</span>
+            <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              ONLINE
+            </span>
+          </div>
+          <div className="space-y-1 text-xs text-silver">
+            <div className="flex justify-between">
+              <span>Database (PostgreSQL)</span>
+              <span className="font-mono text-white dark:text-white light:text-gray-900">Connected</span>
+            </div>
+            <div className="flex justify-between">
+              <span>AI Provider</span>
+              <span className="font-mono text-strawberry-red font-semibold">Active (HF/RAG)</span>
+            </div>
+            <div className="flex justify-between">
+              <span>pgvector Index</span>
+              <span className="font-mono text-white dark:text-white light:text-gray-900">384d HNSW</span>
             </div>
           </div>
-        </Card>
-      </section>
+          <div className="pt-2 border-t border-silver/10">
+            <Link
+              href="/admin/system"
+              className="text-xs text-strawberry-red font-medium hover:underline flex items-center gap-1"
+            >
+              Open Technical Diagnostics →
+            </Link>
+          </div>
+        </div>
+      </div>
 
-      {/* SECTION 7 — Development Stage Roadmap */}
-      <section>
-        <StageRoadmap />
-      </section>
+      {/* Organization KPIs */}
+      {isLoading ? (
+        <MetricSkeleton count={4} />
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="Total Trainees"
+            value={metrics?.totalTrainees || '—'}
+            subtext="Registered in organization"
+            icon={<Users className="w-4 h-4 text-sky-400" />}
+            status="info"
+          />
+          <StatCard
+            label="Active Learners"
+            value={metrics?.activeLearnersLast30Days || '—'}
+            subtext="Active in last 30 days"
+            icon={<Activity className="w-4 h-4 text-emerald-400" />}
+            status="success"
+          />
+          <StatCard
+            label="Assessment Pass Rate"
+            value={
+              metrics?.assessment?.passRate !== undefined
+                ? `${Math.round(metrics.assessment.passRate)}%`
+                : '—'
+            }
+            subtext="Automated grading rate"
+            icon={<CheckSquare className="w-4 h-4 text-amber-400" />}
+            status="warning"
+          />
+          <StatCard
+            label="Certificates Issued"
+            value={metrics?.certificateCount || '—'}
+            subtext="Verified credentials issued"
+            icon={<ShieldCheck className="w-4 h-4 text-strawberry-red" />}
+            status="danger"
+          />
+        </div>
+      )}
 
-      {/* Footer */}
-      <footer className="border-t border-silver/15 pt-6 text-center text-xs text-silver/60 font-mono space-y-1">
-        <p>CAPACITY CONNECT — SIH 2026 (PS 26075)</p>
-        <p>Built with Next.js 14, Express, PostgreSQL, pgvector & LangChain</p>
-      </footer>
-    </main>
+      {/* Two Column Layout: Quick Actions & Top Skill Gaps */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <section className="space-y-4">
+          <h2 className="text-base font-bold text-white dark:text-white light:text-gray-900 tracking-tight flex items-center gap-2">
+            <Layers className="w-4 h-4 text-strawberry-red" />
+            Administration Management Shortcuts
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Link
+              href="/courses"
+              className="p-4 rounded-xl border border-silver/15 dark:border-white/10 light:border-gray-200 bg-carbon-black/60 dark:bg-[#161a1d] light:bg-white hover:border-mahogany-red/40 transition-all space-y-1 block shadow-sm"
+            >
+              <div className="font-bold text-sm text-white dark:text-white light:text-gray-900">
+                Course Catalog &amp; Builder
+              </div>
+              <div className="text-xs text-silver dark:text-silver light:text-gray-500">
+                Create, review, publish, and archive curriculum.
+              </div>
+            </Link>
+            <Link
+              href="/assessments"
+              className="p-4 rounded-xl border border-silver/15 dark:border-white/10 light:border-gray-200 bg-carbon-black/60 dark:bg-[#161a1d] light:bg-white hover:border-mahogany-red/40 transition-all space-y-1 block shadow-sm"
+            >
+              <div className="font-bold text-sm text-white dark:text-white light:text-gray-900">
+                Assessment Management
+              </div>
+              <div className="text-xs text-silver dark:text-silver light:text-gray-500">
+                Question banks, passing thresholds, and grading metrics.
+              </div>
+            </Link>
+            <Link
+              href="/admin/audit"
+              className="p-4 rounded-xl border border-silver/15 dark:border-white/10 light:border-gray-200 bg-carbon-black/60 dark:bg-[#161a1d] light:bg-white hover:border-mahogany-red/40 transition-all space-y-1 block shadow-sm"
+            >
+              <div className="font-bold text-sm text-white dark:text-white light:text-gray-900">
+                Enterprise Audit Trail
+              </div>
+              <div className="text-xs text-silver dark:text-silver light:text-gray-500">
+                Inspect security logs, login activity, and administrative actions.
+              </div>
+            </Link>
+            <Link
+              href="/admin/system"
+              className="p-4 rounded-xl border border-silver/15 dark:border-white/10 light:border-gray-200 bg-carbon-black/60 dark:bg-[#161a1d] light:bg-white hover:border-mahogany-red/40 transition-all space-y-1 block shadow-sm"
+            >
+              <div className="font-bold text-sm text-white dark:text-white light:text-gray-900">
+                System Diagnostics
+              </div>
+              <div className="text-xs text-silver dark:text-silver light:text-gray-500">
+                pgvector, AI provider configuration, and health telemetry.
+              </div>
+            </Link>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white dark:text-white light:text-gray-900 tracking-tight flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-amber-400" />
+              Top Identified Skill Gaps
+            </h2>
+            <Link href="/competencies" className="text-xs text-strawberry-red hover:underline">
+              Full Matrix →
+            </Link>
+          </div>
+
+          <Card>
+            {metrics?.competency?.topSkillGaps && metrics.competency.topSkillGaps.length > 0 ? (
+              <div className="space-y-3">
+                {metrics.competency.topSkillGaps.slice(0, 4).map((gap) => (
+                  <div key={gap.competencyId} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-semibold text-white dark:text-white light:text-gray-900">
+                        {gap.competencyName}
+                      </span>
+                      <span className="font-mono text-strawberry-red font-bold">
+                        {Math.round(gap.averageGapPercentage)}% avg gap ({gap.traineeCount} learners)
+                      </span>
+                    </div>
+                    <ProgressBar
+                      value={Math.round(gap.averageGapPercentage)}
+                      size="sm"
+                      variant="warning"
+                      showPercentage={false}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-silver text-center py-4">
+                No major organization skill gaps identified yet.
+              </p>
+            )}
+          </Card>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. GUEST / UNAUTHENTICATED LANDING VIEW
+// ─────────────────────────────────────────────────────────────────────────────
+
+function GuestLandingView() {
+  const [courses, setCourses] = useState<Course[]>([]);
+
+  useEffect(() => {
+    fetchCoursesApi().then((res) => setCourses(res?.courses || []));
+  }, []);
+
+  return (
+    <div className="space-y-16 py-6 animate-in fade-in duration-300">
+      {/* Hero */}
+      <div className="text-center space-y-6 max-w-3xl mx-auto pt-6 sm:pt-12">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-dark-garnet/40 dark:bg-dark-garnet/30 light:bg-red-50 text-strawberry-red border border-mahogany-red/30 text-xs font-bold tracking-wider uppercase">
+          <Sparkles className="w-3.5 h-3.5" />
+          Smart Education &bull; SIH 2026 PS 26075
+        </div>
+
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white dark:text-white light:text-gray-900 tracking-tight leading-tight">
+          Build Skills. Measure Progress.{' '}
+          <span className="bg-gradient-to-r from-strawberry-red to-mahogany-red bg-clip-text text-transparent">
+            Reach Your Potential.
+          </span>
+        </h1>
+
+        <p className="text-sm sm:text-lg text-silver dark:text-silver light:text-gray-600 max-w-2xl mx-auto leading-relaxed">
+          Capacity Connect is an AI-powered organizational capacity-building and Learning Management Platform that connects Trainees, Trainers, and Administrators in a continuous competency loop.
+        </p>
+
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+          <Link href="/register">
+            <Button variant="brand" size="lg" className="gap-2 text-sm sm:text-base px-6">
+              Get Started Free
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
+          <Link href="/login">
+            <Button variant="outline" size="lg" className="text-sm sm:text-base px-6">
+              Sign In to Account
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Continuous Competency Loop Architecture Diagram */}
+      <div className="p-8 rounded-2xl bg-carbon-black dark:bg-[#161a1d] light:bg-white border border-silver/15 dark:border-white/10 light:border-gray-200 shadow-xl space-y-6">
+        <div className="text-center space-y-1.5">
+          <Badge variant="brand" size="sm">
+            THE CAPACITY CONNECT COMPETENCY ENGINE
+          </Badge>
+          <h2 className="text-xl sm:text-2xl font-bold text-white dark:text-white light:text-gray-900">
+            A Continuous Competency Development Loop
+          </h2>
+          <p className="text-xs sm:text-sm text-silver dark:text-silver light:text-gray-600 max-w-xl mx-auto">
+            Unlike generic LMS platforms with simple chatbots, Capacity Connect closes skill gaps through active measurement and personalized intervention.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center text-xs font-semibold">
+          {[
+            { step: '1', title: 'LEARN', desc: 'Modular Courses' },
+            { step: '2', title: 'ASSESS', desc: 'Automated Quizzes' },
+            { step: '3', title: 'MEASURE', desc: 'Competency Engine' },
+            { step: '4', title: 'IDENTIFY', desc: 'Skill Gap Matrix' },
+            { step: '5', title: 'RECOMMEND', desc: 'AI Pathways' },
+            { step: '6', title: 'CONNECT', desc: 'Expert Trainers' },
+            { step: '7', title: 'IMPROVE', desc: 'Verified Certs' },
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="p-3.5 rounded-xl bg-onyx dark:bg-[#0b090a] light:bg-gray-50 border border-silver/10 light:border-gray-200 space-y-1 relative"
+            >
+              <span className="text-[10px] font-mono font-bold text-strawberry-red">
+                STAGE {item.step}
+              </span>
+              <div className="font-bold text-white dark:text-white light:text-gray-900 text-xs sm:text-sm">
+                {item.title}
+              </div>
+              <div className="text-[10px] text-silver dark:text-silver light:text-gray-500">{item.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Featured Courses Preview */}
+      {courses.length > 0 && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-white dark:text-white light:text-gray-900">
+                Explore Available Courses
+              </h3>
+              <p className="text-xs text-silver dark:text-silver light:text-gray-500">
+                Curated curriculum designed for digital capacity building
+              </p>
+            </div>
+            <Link href="/courses">
+              <Button variant="outline" size="sm">
+                View Full Catalog →
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {courses.slice(0, 3).map((course) => (
+              <div
+                key={course.id}
+                className="p-5 rounded-xl border border-silver/15 dark:border-white/10 light:border-gray-200 bg-carbon-black/60 dark:bg-[#161a1d] light:bg-white flex flex-col justify-between space-y-4 shadow-md"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="brand" size="sm">
+                      {course.difficulty_level || 'INTERMEDIATE'}
+                    </Badge>
+                    <span className="text-xs text-silver dark:text-silver light:text-gray-500">• {course.category}</span>
+                  </div>
+                  <h4 className="text-base font-bold text-white dark:text-white light:text-gray-900">
+                    {course.title}
+                  </h4>
+                  <p className="text-xs text-silver dark:text-silver light:text-gray-600 line-clamp-2">
+                    {course.description}
+                  </p>
+                </div>
+                <div className="pt-3 border-t border-silver/10 light:border-gray-100 flex items-center justify-between">
+                  <span className="text-xs text-silver dark:text-silver light:text-gray-500">
+                    {course.creator_name || 'Certified Instructor'}
+                  </span>
+                  <Link href={`/courses/${course.id}`}>
+                    <Button variant="secondary" size="sm" className="text-xs">
+                      View Details
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

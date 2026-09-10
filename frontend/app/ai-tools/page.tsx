@@ -418,16 +418,41 @@ export default function AIToolsPage() {
                               onChange={(e) =>
                                 setSelectedTargetAssessment((prev) => ({ ...prev, [item.id]: e.target.value }))
                               }
-                              className="w-full bg-carbon-black border border-silver/20 rounded px-3 py-1.5 text-xs text-white focus:outline-none"
+                              className="w-full bg-onyx dark:bg-[#0b090a] light:bg-white border border-silver/20 dark:border-silver/15 light:border-gray-300 rounded-lg px-3 py-1.5 text-xs text-white dark:text-white light:text-gray-900 focus:outline-none focus:border-strawberry-red"
                             >
-                              <option value="">-- Select Target Published Assessment --</option>
-                              {assessments
-                                .filter((a) => a.course_id === item.course_id)
-                                .map((a) => (
-                                  <option key={a.id} value={a.id}>
-                                    {a.title} ({a.status})
-                                  </option>
-                                ))}
+                              <option value="">-- Select Target Assessment --</option>
+                              {(() => {
+                                const courseAssessments = assessments.filter((a) => a.course_id === item.course_id);
+                                const otherAssessments = assessments.filter((a) => a.course_id !== item.course_id);
+
+                                return (
+                                  <>
+                                    {courseAssessments.length > 0 && (
+                                      <optgroup label="This Course's Assessments">
+                                        {courseAssessments.map((a) => (
+                                          <option key={a.id} value={a.id}>
+                                            {a.title} ({a.status})
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    )}
+                                    {otherAssessments.length > 0 && (
+                                      <optgroup label={courseAssessments.length > 0 ? "Other Assessments in Organization" : "Available Assessments"}>
+                                        {otherAssessments.map((a) => (
+                                          <option key={a.id} value={a.id}>
+                                            {a.title} ({a.status})
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    )}
+                                    {assessments.length === 0 && (
+                                      <option value="" disabled>
+                                        No assessments available. Please create one in Assessments first.
+                                      </option>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </select>
                           </div>
                         )}
